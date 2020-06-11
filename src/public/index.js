@@ -11,7 +11,7 @@ function add(){
            document.getElementById('status').innerHTML = "Failed to add messsage.";
          } else {
            var resp = JSON.parse(xhttp.responseText);
-           document.getElementById('status').innerHTML = "Message added to block #" + resp.blockId;
+           document.getElementById('status').innerHTML = "Message added to block " + linkToBlock(resp.blockId);
          }
        }
 
@@ -38,12 +38,12 @@ function verify(){
                  message += "Your message was found, but is not in blockchain yet.";
                } else if(!e.verified){
                  if(!e.invalid){
-                   message += "Your message was found in block #" + e.blockId + ", but couldn't be verified yet.";
+                   message += "Your message was found in block " + linkToBlock(e.blockId) + ", but couldn't be verified yet.";
                  } else {
-                   message += "Your message was found in block #" + e.blockId + ", but verification detected invalid block.";
+                   message += "Your message was found in block " + linkToBlock(e.blockId) + ", but verification detected invalid block.";
                  }
                } else {
-                 message += "Your message was found and verified in block #" + e.blockId;
+                 message += "Your message was found and verified in block " + linkToBlock(e.blockId);
                }
                message += "<br>";
              });
@@ -58,4 +58,8 @@ function verify(){
    xhttp.open("POST", 'verify', true);
    xhttp.setRequestHeader('Content-Type', "text/plain");
    xhttp.send(document.getElementById('message').value);
+}
+
+function linkToBlock(id){
+  return '<a href="block/'+id+'">#'+id+"</a>";
 }
