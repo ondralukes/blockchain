@@ -61,5 +61,5 @@ function verify(){
 }
 
 function linkToBlock(id){
-  return '<a href="block/'+id+'">#'+id+"</a>";
+  return '<a href="browse?id='+id+'">#'+id+"</a>";
 }

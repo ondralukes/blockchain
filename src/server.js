@@ -203,7 +203,7 @@ app.post('/verify', (req, res) => {
 app.get('/block/:blockId', (req, res) => {
   var blockId = parseInt(req.params.blockId);
   if(blockId >= blocks.length){
-    res.status(400);
+    res.status(404);
     res.end();
     return;
   }
@@ -213,7 +213,8 @@ app.get('/block/:blockId', (req, res) => {
     hash: blockHash(block),
     contentHash: block.contentHash,
     hashes: block.hashes,
-    timestamp: block.timestamp
+    timestamp: block.timestamp,
+    blocksAfter: blocks.length - blockId - 1
   };
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(resp));
