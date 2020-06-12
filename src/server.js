@@ -1,34 +1,57 @@
 var express = require('express');
-var sha512 = require('crypto-js/sha512');
 const VerifyResult = Object.freeze(
   {'Valid':0,'NotVerified':1, 'Invalid':2}
 );
 
-var Base64 = require('crypto-js/enc-base64');
+var Utils = require('./utils');
 var app = express();
 
 app.use(express.text());
 app.use(express.static('public'));
 
-var lastBlockTime = timestamp();
+var lastBlockTime = Math.ceil(timestamp() / 10)*10;
+
+var chainedBlocks = 1;
 var hashes = [];
+var messages = [];
 var blocks = [
   {
+    id:0,
     contentHash:
     'ESR4XzDTKyRvubusZVpRZv1Sb7L0Vtno+JizUaXEzPrMtAT+7DNk548Rs7r/+6r/03yr91i1l/zuUMktT5ZeLg==',
     prevHash:
     '',
     timestamp:
-    timestamp(),
+    lastBlockTime,
     hashes:[
       'AEPj7ApTzFNpmS6bsW4Sx5czpp3/xEiEbranEtK6Vq1moExo3wiJPCZCwU3vnLDSL4shWMcaxRGru5Lg72b+JQ=='
+    ],
+    messages:[
+      'baseblock'
     ]
+  },
+  {
+    id:1,
+    hashes:[],
+    messages:[]
+  },
+  {
+    id:2,
+    hashes:[],
+    messages:[]
   }
 ];
 
-function blockHash(block){
-  var string = block.contentHash+block.prevHash+block.timestamp;
-  return Base64.stringify(sha512(string));
+function getBlockForAdding(){
+  if(timestamp() - lastBlockTime < blockTime/2){
+    return blocks[chainedBlocks];
+  }  else {
+    return blocks[chainedBlocks + 1];
+  }
+}
+
+function canDistribute(){
+  return timestamp() - lastBlockTime > blockTime/2;
 }
 
 var block = [];
@@ -47,56 +70,38 @@ function timer(){
     if(timeToNext > 0){
       return;
     }
+
+    time = Math.floor(time / 10)*10;
     console.log('Finishing block.');
-    console.log('Block size = ' + hashes.length);
-    hashes.forEach((h) => console.log(h));
+    var block = blocks[chainedBlocks];
+    console.log('Block size = ' + block.hashes.length);
 
-
-
-    var hash = hashTree(hashes);
+    var hash = Utils.hashTree(block.hashes);
     console.log(hash);
 
-    var block = {
-      contentHash: hash,
-      prevHash: blockHash(blocks[blocks.length - 1]),
-      timestamp: time,
-      hashes: hashes
-    };
+    block.contentHash = hash;
+    block.prevHash = Utils.blockHash(blocks[chainedBlocks - 1]);
+    block.timestamp = time;
 
-    blocks.push(block);
+    chainedBlocks++;
 
-    hashes = [];
+    blocks.push({
+      id:blocks.length,
+      hashes:[],
+      messages:[]
+    });
+
     lastBlockTime = time;
     console.log('New block:');
     console.log(block);
-    console.log('Blockchain now contains ' + blocks.length + ' blocks.');
-}
-
-function hashTree(hashes){
-  var treeLevels = 0;
-  var result = [];
-  hashes.forEach((h) => result.push(h));
-
-  while(Math.pow(2, treeLevels) < result.length) treeLevels++;
-  for(var len = Math.pow(2, treeLevels); len >= 1; len /= 2){
-    for(var i = 0;i < len;i++){
-      var h1 = '';
-      var h2 = '';
-
-      if(i*2 <result.length) h1 = result[i*2];
-      if(i*2+1 < result.length) h2 = result[i*2+1];
-
-      result[i] = Base64.stringify(sha512(h1 + h2));
-    }
-  }
-  return result[0];
+    console.log('Blockchain now contains ' + chainedBlocks + ' blocks.');
 }
 
 function verifyChain(index){
   console.log('\n');
   console.log('Veryfying chain from block ' + index);
   var indexResult;
-  for(var i = index; i < blocks.length;i++){
+  for(var i = index; i < chainedBlocks;i++){
     var result = VerifyResult.NotVerified;
     var block = blocks[i];
     console.log('Block #' + i + '===');
@@ -109,9 +114,9 @@ function verifyChain(index){
       console.log('   First block');
     }
 
-    if(i != blocks.length - 1){
+    if(i != chainedBlocks - 1){
       var nextBlock = blocks[i+1];
-      if(blockHash(block) == nextBlock.prevHash){
+      if(Utils.blockHash(block) == nextBlock.prevHash){
         console.log('   Block hash matches next block.');
         result = VerifyResult.Valid;
       } else {
@@ -122,7 +127,7 @@ function verifyChain(index){
       console.log('   Last block. Cannot verify.');
     }
 
-    var calculatedHash = hashTree(block.hashes);
+    var calculatedHash = Utils.hashTree(block.hashes);
     if(calculatedHash == block.contentHash){
       console.log('   Block hash matches content.');
     } else {
@@ -148,18 +153,20 @@ function verifyChain(index){
 }
 
 app.post('/add', (req, res) => {
-  var hash = Base64.stringify(sha512(req.body));
-  console.log('Added message ' + hash);
-  hashes.push(hash);
+  var hash = Utils.hash(req.body);
+  var block = getBlockForAdding();
+  console.log('Added message ' + hash + ' to block ' + block.id);
+  block.hashes.push(hash);
+  block.messages.push(req.body);
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify({
-    blockId: blocks.length,
+    blockId: block.id,
     hash: hash
   }));
 });
 
 app.post('/verify', (req, res) => {
-  var hash = Base64.stringify(sha512(req.body));
+  var hash = Utils.hash(req.body);
   console.log('Searching for message ' + hash);
   var blockId;
   var resp = [];
@@ -170,7 +177,6 @@ app.post('/verify', (req, res) => {
       if(h != hash) return;
       var e = {
         blockId: i,
-        inBlock: true
       };
       var verif = verifyChain(i);
       if(verif == VerifyResult.Valid){
@@ -184,16 +190,6 @@ app.post('/verify', (req, res) => {
       }
       resp.push(e);
     });
-  });
-
-  //Check queued hashes for next block
-  hashes.forEach((h, i) => {
-    if(h == hash){
-      var e = {
-        inBlock: false,
-      };
-      resp.push(e);
-    }
   });
 
   res.setHeader('Content-Type', 'application/json');
@@ -210,7 +206,7 @@ app.get('/block/:blockId', (req, res) => {
   var block = blocks[blockId];
   var resp = {
     blockId: blockId,
-    hash: blockHash(block),
+    hash: Utils.blockHash(block),
     contentHash: block.contentHash,
     hashes: block.hashes,
     timestamp: block.timestamp,
@@ -218,6 +214,22 @@ app.get('/block/:blockId', (req, res) => {
   };
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(resp));
+});
+
+app.get('/pull', (req, res) => {
+  var id = blocks.length;
+  res.setHeader('Content-Type', 'application/json');
+  if(canDistribute()){
+    var block = blocks[chainedBlocks];
+    res.end(JSON.stringify({
+      hashes: block.hashes,
+      messages: block.messages,
+      blockId: block.id
+    }));
+  } else {
+    res.end('{}');
+  }
+
 })
 
 var server = app.listen(8080);

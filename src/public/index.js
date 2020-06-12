@@ -34,9 +34,7 @@ function verify(){
              message = "Your message was not found.";
            } else {
              resp.forEach((e) => {
-               if(!e.inBlock){
-                 message += "Your message was found, but is not in blockchain yet.";
-               } else if(!e.verified){
+               if(!e.verified){
                  if(!e.invalid){
                    message += "Your message was found in block " + linkToBlock(e.blockId) + ", but couldn't be verified yet.";
                  } else {
@@ -48,8 +46,6 @@ function verify(){
                message += "<br>";
              });
            }
-
-
            document.getElementById('status').innerHTML = message;
          }
        }
