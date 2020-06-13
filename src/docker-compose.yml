@@ -1,0 +1,29 @@
+version: "3.0"
+
+services:
+  client:
+    container_name: client
+    build:
+      context: client
+    ports:
+      - "8080:8080"
+
+  chain-a:
+    container_name: chain-a
+    build:
+      context: server
+
+  chain-b:
+    container_name: chain-b
+    build:
+      context: server
+
+  chain-c:
+    container_name: chain-c
+    build:
+      context: server
+
+  chain-d:
+    container_name: chain-d
+    build:
+      context: server
