@@ -1,6 +1,22 @@
+const {Worker} = require('worker_threads');
+const sha512 = require('crypto-js/sha512');
+const Base64 = require('crypto-js/enc-base64');
+
 module.exports = class Blockchain {
   constructor(){
-    this.transactions = [
+    this.pendingTransactions = [];
+    this.pendingBlocks = [];
+    this.blocks = [];
+    this.nextBlockTime = Math.ceil(timestamp() / 10) * 10;
+
+    var _this = this;
+
+    this.validator = new Worker('./blockValidator.js');
+    this.validator.on('message', (b) => _this.handleWorkerMessage(b));
+
+    setInterval(function(){_this.timer();}, 1000);
+
+    var init = this.insertTransaction(
       {
         owner: 'init',
         inputs: [],
@@ -10,18 +26,67 @@ module.exports = class Blockchain {
             receiver: 'master'
           },
         ]
-      },
+      }
+    );
+
+    this.masterTransaction = this.insertTransaction(
       {
         owner: 'master',
-        inputs: [0],
+        inputs: [init],
         outputs: [
           {
             amount: 1000,
             receiver: 'master'
           },
         ]
-      },
-    ];
+      }
+    );
+  }
+
+  handleWorkerMessage(message){
+    if(message.type == 'validated'){
+      this.handleValidated(message.block);
+    } else if(message.type == 'getTransaction'){
+      var transaction = this.getVerifiedTransaction(message.id);
+      this.validator.postMessage({
+        type: 'response',
+        transaction: transaction
+      });
+    }
+  }
+
+  handleValidated(block){
+    console.log(`[Blockchain] Received validated block ${block.time} with ${block.transactions.length} transactions`);
+    this.pendingBlocks.splice(
+      this.pendingBlocks.indexOf(block),
+      1
+    );
+
+    block.prevHash = objectHash(this.blocks[this.blocks.length - 1]);
+    this.blocks.push(block);
+  }
+
+  timer(){
+    var time = timestamp();
+    if(time >= this.nextBlockTime){
+      //Copy array
+      var transactions = this.pendingTransactions.slice(0);
+      this.pendingTransactions = [];
+
+      var block = {
+        time: this.nextBlockTime,
+        transactions: transactions
+      };
+
+      this.pendingBlocks.push(block);
+      this.validator.postMessage({
+        type: 'validate',
+        block: block
+      });
+
+      if(time == this.nextBlockTime) time++;
+      this.nextBlockTime = Math.ceil(time / 10) * 10;
+    }
   }
 
   register(name){
@@ -39,10 +104,10 @@ module.exports = class Blockchain {
     if(headId != -1){
       balance = this.getInputFromTransaction(head, head.owner);
     }
-    if(balance < amount){
-      console.log('Transaction failed');
-      return -1;
-    }
+    // if(balance < amount){
+    //   console.log('Transaction failed');
+    //   return -1;
+    // }
 
     var transaction = {
       owner: head.owner,
@@ -63,7 +128,7 @@ module.exports = class Blockchain {
 
     var newHeadId = this.insertTransaction(transaction);
 
-    console.log(`Sent ${amount}, now have ${balance - amount}`);
+    console.log(`[Blockchain] Sent ${amount}, now have ${balance - amount}`);
     return newHeadId;
   }
 
@@ -87,7 +152,7 @@ module.exports = class Blockchain {
       ]
     };
 
-    console.log(`Received ${amount}, now have ${balance}`);
+    console.log(`[Blockchain] Received ${amount}, now have ${balance}`);
     return this.insertTransaction(r);
   }
 
@@ -101,11 +166,46 @@ module.exports = class Blockchain {
   }
 
   getTransaction(id){
-    return this.transactions[id];
+    var split = id.split('@');
+    var block = parseInt(split[1]);
+    var hash = split[0];
+
+    var block = this.blocks.find(x => x.time == block);
+
+    if(typeof block === 'undefined')
+      block = this.pendingBlocks.find(x => x.time == block);
+
+    if(typeof block === 'undefined')
+      return this.pendingTransactions.find(x => x.hash == hash);
+
+    return block.transactions.find(x => x.hash == hash);
+  }
+
+  getVerifiedTransaction(id){
+    var split = id.split('@');
+    var block = parseInt(split[1]);
+    var hash = split[0];
+
+    var block = this.blocks.find(x => x.time == block);
+    if(typeof block === 'undefined') return block;
+    return block.transactions.find(x => x.hash == hash);
   }
 
   insertTransaction(trans){
-    this.transactions.push(trans);
-    return this.transactions.length - 1;
+    trans.hash = objectHash(trans);
+    this.pendingTransactions.push(trans);
+    return `${trans.hash}@${this.nextBlockTime}`;
   }
+}
+
+function timestamp(){
+  return Math.floor(new Date().getTime() / 1000);
+}
+
+function objectHash(obj){
+  return Base64.stringify(
+    sha512(
+    JSON.stringify(obj)
+    )
+  );
 }
