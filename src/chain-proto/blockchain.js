@@ -1,13 +1,39 @@
 const {Worker} = require('worker_threads');
 const sha512 = require('crypto-js/sha512');
+var RSA = require('node-rsa');
 const Base64 = require('crypto-js/enc-base64');
 
 module.exports = class Blockchain {
-  constructor(){
+  constructor(masterPub, masterPriv){
     this.pendingTransactions = [];
     this.pendingBlocks = [];
-    this.blocks = [];
     this.nextBlockTime = Math.ceil(timestamp() / 10) * 10;
+
+    //Create init transaction
+    var initT = {
+      owner: 'init',
+      inputs: [],
+      outputs: [
+        {
+          amount: 1000000,
+          receiver: masterPub
+        }
+      ],
+    };
+    initT.hash = objectHash(initT);
+    initT.signature = 'theres no signature';
+
+    //Create init block
+    this.blocks = [{
+        time: this.nextBlockTime - 10,
+        transactions: [initT],
+        prevHash: 'z4PhNX7vuL3xVChQ1m2AB9Yg5AULVxXcg/SpIdNs6c5H0NE8XYXysP+DGNKHfuwvY7kxvUdBeoGlODJ6+SfaPg=='
+      }
+    ];
+
+    var initTId = `${initT.hash}@${this.nextBlockTime - 10}`;
+
+    this.validatedHeadCache = {masterPub: initTId};
 
     var _this = this;
 
@@ -16,31 +42,9 @@ module.exports = class Blockchain {
 
     setInterval(function(){_this.timer();}, 1000);
 
-    var init = this.insertTransaction(
-      {
-        owner: 'init',
-        inputs: [],
-        outputs: [
-          {
-            amount: 1000,
-            receiver: 'master'
-          },
-        ]
-      }
-    );
-
-    this.masterTransaction = this.insertTransaction(
-      {
-        owner: 'master',
-        inputs: [init],
-        outputs: [
-          {
-            amount: 1000,
-            receiver: 'master'
-          },
-        ]
-      }
-    );
+    //Register master and receive money
+    var masterHead = this.register(masterPub, masterPriv);
+    this.masterHead = this.receive(masterHead, masterPriv, initTId);
   }
 
   handleWorkerMessage(message){
@@ -56,7 +60,7 @@ module.exports = class Blockchain {
   }
 
   handleValidated(block){
-    console.log(`[Blockchain] Received validated block ${block.time} with ${block.transactions.length} transactions`);
+    // console.log(`[Blockchain] Received validated block ${block.time} with ${block.transactions.length} transactions`);
     this.pendingBlocks.splice(
       this.pendingBlocks.indexOf(block),
       1
@@ -64,6 +68,9 @@ module.exports = class Blockchain {
 
     block.prevHash = objectHash(this.blocks[this.blocks.length - 1]);
     this.blocks.push(block);
+    block.transactions.forEach((t) => {
+      this.validatedHeadCache[t.owner] = `${t.hash}@${block.time}`;
+    });
   }
 
   timer(){
@@ -89,16 +96,19 @@ module.exports = class Blockchain {
     }
   }
 
-  register(name){
+  register(pub, priv){
     var r = {
-      owner: name,
+      owner: pub,
       inputs:[],
       outputs: []
     };
-    return this.insertTransaction(r);
+
+
+
+    return this.insertTransaction(r, priv);
   }
 
-  send(headId, receiver, amount){
+  send(headId, priv, receiver, amount){
     var head = this.getTransaction(headId);
     var balance = 0;
     if(headId != -1){
@@ -126,13 +136,13 @@ module.exports = class Blockchain {
       ]
     };
 
-    var newHeadId = this.insertTransaction(transaction);
+    var newHeadId = this.insertTransaction(transaction,  priv);
 
     console.log(`[Blockchain] Sent ${amount}, now have ${balance - amount}`);
     return newHeadId;
   }
 
-  receive(headId, tId){
+  receive(headId, priv, tId){
     var head = this.getTransaction(headId);
     var t = this.getTransaction(tId);
     var balance = this.getInputFromTransaction(head, head.owner);
@@ -153,7 +163,7 @@ module.exports = class Blockchain {
     };
 
     console.log(`[Blockchain] Received ${amount}, now have ${balance}`);
-    return this.insertTransaction(r);
+    return this.insertTransaction(r, priv);
   }
 
   getInputFromTransaction(t, recv){
@@ -191,8 +201,15 @@ module.exports = class Blockchain {
     return block.transactions.find(x => x.hash == hash);
   }
 
-  insertTransaction(trans){
+  insertTransaction(trans, priv){
     trans.hash = objectHash(trans);
+    var key = RSA(priv);
+    var signature = key.sign(
+      JSON.stringify(trans),
+      'base64',
+      'utf8'
+    );
+    trans.signature = signature;
     this.pendingTransactions.push(trans);
     return `${trans.hash}@${this.nextBlockTime}`;
   }

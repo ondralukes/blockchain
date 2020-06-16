@@ -1,4 +1,7 @@
 const {workerData, parentPort} = require('worker_threads');
+var RSA = require('node-rsa');
+
+const logEnabled = false;
 
 var blocks = [];
 var resp = null;
@@ -26,19 +29,19 @@ async function timer(){
 }
 
 async function validateBlock(block){
-  console.log(`[Validator] Validating block ${block.time}`);
+  log(`[Validator] Validating block ${block.time}`);
   block.transactions.forEach((t) => t.validated = false);
 
   var run = 0;
   while(true){
-    console.log(`[Validator] =Run ${run}`);
+    log(`[Validator] =Run ${run}`);
     var validated = 0;
     for(var i = 0;i<block.transactions.length;i++){
       var t = block.transactions[i];
       if(!t.validated) await validateTransaction(t, block);
       if(t.validated) validated++;
     }
-    console.log(`[Validator] ==Validated ${validated}/${block.transactions.length}`);
+    log(`[Validator] ==Validated ${validated}/${block.transactions.length}`);
     if(validated == block.transactions.length) break;
   }
 
@@ -53,33 +56,33 @@ async function validateBlock(block){
   });
 
   block.transactions = passed;
-  console.log(`[Validator] =${block.transactions.length} transactions passed.`);
+  log(`[Validator] =${block.transactions.length} transactions passed.`);
 }
 
 async function validateTransaction(trans, block){
-  console.log(`[Validator] ====Validating transaction ${shortenHash(trans.hash)}`);
-  if(Object.keys(trans).length != 5){ //Object properties + temporary 'validated'
-    console.log('[Validator] =====0Invalid object structure. Invalid.');
+  log(`[Validator] ====Validating transaction ${shortenHash(trans.hash)}`);
+  if(Object.keys(trans).length != 6){ //Object properties + temporary 'validated'
+    log('[Validator] =====Invalid object structure. Invalid.');
     trans.validated = true;
     trans.valid = false;
     return;
   }
-  console.log('[Validator] ======Validating inputs');
+  log('[Validator] ======Validating inputs');
   var totalInput = 0;
   for(var i = 0;i<trans.inputs.length;i++){
     var input = trans.inputs[i];
-    console.log(`[Validator] =======Validating input ${shortenId(input)}`);
+    log(`[Validator] =======Validating input ${shortenId(input)}`);
     if(transactionBlock(input) != block.time){
-      console.log('[Validator] ===========From older block.');
+      log('[Validator] ===========From older block.');
       var t = await getTransaction(input);
     } else {
-      console.log('[Validator] ===========From this block.');
+      log('[Validator] ===========From this block.');
       var t = block.transactions.find(x => x.hash == transactionHash(input));
       if(!t.validated){
-        console.log('[Validator] ===========Input depends on not validated transaction. Delaying validation.');
+        log('[Validator] ===========Input depends on not validated transaction. Delaying validation.');
         return;
       } else if(!t.valid){
-        console.log('[Validator] ===========Input depends on invalid transaction. Invalid.');
+        log('[Validator] ===========Input depends on invalid transaction. Invalid.');
         trans.validated = true;
         trans.valid = false;
         return;
@@ -87,26 +90,26 @@ async function validateTransaction(trans, block){
     }
     var output = t.outputs.find(x => x.receiver == trans.owner);
     if(typeof output === 'undefined'){
-      console.log('[Validator] ===========Input does not match any output.');
+      log('[Validator] ===========Input does not match any output.');
     } else {
       totalInput += output.amount;
     }
   }
-  console.log(`[Validator] ======Total input: ${totalInput}`);
-  console.log('[Validator] ======Validating outputs');
+  log(`[Validator] ======Total input: ${totalInput}`);
+  log('[Validator] ======Validating outputs');
   var totalOutput = 0;
   var valid = true;
   trans.outputs.forEach(output => {
     if(Object.keys(output).length != 2 ||
       !Object.keys(output).includes('receiver') ||
       !Object.keys(output).includes('amount')){
-      console.log('[Validator] =====1Invalid object structure. Invalid.');
+      log('[Validator] =====Invalid object structure. Invalid.');
       trans.validated = true;
       trans.valid = false;
       return;
     }
     if(output.amount < 0){
-        console.log('[Validator] =========Output contains negative amount. Invalid.');
+        log('[Validator] =========Output contains negative amount. Invalid.');
         valid = false;
         return;
     }
@@ -117,7 +120,27 @@ async function validateTransaction(trans, block){
     trans.valid = false;
     return;
   }
-  console.log(`[Validator] ======Total output: ${totalOutput}`);
+  log(`[Validator] ======Total output: ${totalOutput}`);
+
+  log('[Validator] ======Verifying signature');
+  var key = new RSA(trans.owner);
+
+  var signature = trans.signature;
+  delete trans.signature;
+  delete trans.validated;
+
+  if(!key.verify(
+    JSON.stringify(trans),
+    signature,
+    'utf8',
+    'base64'
+  )){
+    trans.validated = true;
+    trans.valid = false;
+    return;
+  }
+
+  trans.signature = signature;
   trans.validated = true;
   trans.valid = true;
 }
@@ -166,3 +189,9 @@ function shortenHash(hash){
 }
 
 setTimeout(timer, 500);
+
+function log(msg){
+  if(logEnabled){
+    console.log(msg);
+  }
+}
