@@ -4,47 +4,56 @@ var RSA = require('node-rsa');
 const Base64 = require('crypto-js/enc-base64');
 
 module.exports = class Blockchain {
-  constructor(masterPub, masterPriv){
+  constructor(masterPub, net){
+    this.net = net;
+    net.setChain(this);
     this.pendingTransactions = [];
     this.pendingBlocks = [];
     this.nextBlockTime = Math.ceil(timestamp() / 10) * 10;
 
     //Create init transaction
-    var initT = {
-      owner: 'init',
-      inputs: [],
-      outputs: [
-        {
-          amount: 1000000,
-          receiver: masterPub
-        }
-      ],
-    };
-    initT.hash = objectHash(initT);
-    initT.signature = 'theres no signature';
+    // var initT = {
+    //   owner: 'init',
+    //   inputs: [],
+    //   outputs: [
+    //     {
+    //       amount: 1000000,
+    //       receiver: masterPub
+    //     }
+    //   ],
+    // };
+    // initT.hash = objectHash(initT);
+    // initT.signature = 'theres no signature';
 
     //Create init block
-    this.blocks = [{
-        time: this.nextBlockTime - 10,
-        transactions: [initT],
-        prevHash: 'z4PhNX7vuL3xVChQ1m2AB9Yg5AULVxXcg/SpIdNs6c5H0NE8XYXysP+DGNKHfuwvY7kxvUdBeoGlODJ6+SfaPg=='
-      }
+    this.blocks = [
+      // {
+      //   time: this.nextBlockTime - 10,
+      //   transactions: [initT],
+      //   prevHash: 'z4PhNX7vuL3xVChQ1m2AB9Yg5AULVxXcg/SpIdNs6c5H0NE8XYXysP+DGNKHfuwvY7kxvUdBeoGlODJ6+SfaPg=='
+      // }
     ];
 
-    var initTId = `${initT.hash}@${this.nextBlockTime - 10}`;
+    // var initTId = `${initT.hash}@${this.nextBlockTime - 10}`;
 
-    this.validatedHeadCache = {masterPub: initTId};
+    this.validatedHeadCache = {
+      // masterPub: initTId
+    };
 
     var _this = this;
 
-    this.validator = new Worker('./blockValidator.js');
+    this.validator = new Worker('./blockValidator.js', {
+      workerData: {
+        master: masterPub
+      }
+    });
     this.validator.on('message', (b) => _this.handleWorkerMessage(b));
 
     setInterval(function(){_this.timer();}, 1000);
 
     //Register master and receive money
-    var masterHead = this.register(masterPub, masterPriv);
-    this.masterHead = this.receive(masterHead, masterPriv, initTId);
+    // var masterHead = this.register(masterPub, masterPriv);
+    // this.masterHead = this.receive(masterHead, masterPriv, initTId);
   }
 
   handleWorkerMessage(message){
@@ -60,7 +69,7 @@ module.exports = class Blockchain {
   }
 
   handleValidated(block){
-    // console.log(`[Blockchain] Received validated block ${block.time} with ${block.transactions.length} transactions`);
+    console.log(`[Blockchain] Received validated block ${block.time} with ${block.transactions.length} transactions`);
     this.pendingBlocks.splice(
       this.pendingBlocks.indexOf(block),
       1
@@ -108,42 +117,41 @@ module.exports = class Blockchain {
     return this.insertTransaction(r, priv);
   }
 
-  send(headId, priv, receiver, amount){
-    var head = this.getTransaction(headId);
+  send(sender, receiver, amount){
     var balance = 0;
-    if(headId != -1){
+    var head;
+    if(typeof sender.head !== 'undefined'){
+      head = this.getTransaction(sender.head);
       balance = this.getInputFromTransaction(head, head.owner);
     }
-    // if(balance < amount){
-    //   console.log('Transaction failed');
-    //   return -1;
-    // }
 
+    var remainder = balance - amount;
+    if(remainder < 0) remainder = 0;
     var transaction = {
-      owner: head.owner,
-      inputs: [
-        headId
-      ],
+      owner: sender.public,
+      inputs: [],
       outputs: [
         {
           amount: amount,
-          receiver: receiver
+          receiver: receiver.public
         },
         {
-          amount: balance - amount,
-          receiver: head.owner
+          amount: remainder,
+          receiver: sender.public
         }
       ]
     };
 
-    var newHeadId = this.insertTransaction(transaction,  priv);
+    if(typeof sender.head !== 'undefined') transaction.inputs.push(sender.head);
+
+    var newHeadId = this.insertTransaction(transaction,  sender.private);
 
     console.log(`[Blockchain] Sent ${amount}, now have ${balance - amount}`);
     return newHeadId;
   }
 
-  receive(headId, priv, tId){
-    var head = this.getTransaction(headId);
+  receive(user, tId){
+    var head = this.getTransaction(user.head);
     var t = this.getTransaction(tId);
     var balance = this.getInputFromTransaction(head, head.owner);
     var amount = this.getInputFromTransaction(t, head.owner);
@@ -151,7 +159,7 @@ module.exports = class Blockchain {
     var r = {
       owner: head.owner,
       inputs:[
-        headId,
+        user.head,
         tId
       ],
       outputs: [
@@ -163,7 +171,7 @@ module.exports = class Blockchain {
     };
 
     console.log(`[Blockchain] Received ${amount}, now have ${balance}`);
-    return this.insertTransaction(r, priv);
+    return this.insertTransaction(r, user.private);
   }
 
   getInputFromTransaction(t, recv){
@@ -210,6 +218,11 @@ module.exports = class Blockchain {
       'utf8'
     );
     trans.signature = signature;
+    this.net.broadcast(trans);
+    return this.insertSignedTransaction(trans);
+  }
+
+  insertSignedTransaction(trans){
     this.pendingTransactions.push(trans);
     return `${trans.hash}@${this.nextBlockTime}`;
   }

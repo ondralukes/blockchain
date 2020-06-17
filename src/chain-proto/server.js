@@ -1,11 +1,17 @@
 var Blockchain = require('./blockchain');
+var Network = require('./network');
+const fs = require('fs');
 var RSA = require('node-rsa');
 const readline = require('readline');
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
+var confFile = 'config.json';
+if(process.argv.length < 3){
+  console.log('Loading deafult config file: config.json');
+} else {
+  console.log(`Loading config file: ${process.argv[2]}`);
+  confFile = process.argv[2];
+}
+var conf = JSON.parse(fs.readFileSync(confFile));
 
 var users = {
   master: {
@@ -29,17 +35,22 @@ var users = {
               + '8T3hOF3Si4EDYv6oVqVg8jp1LG/D6kdZtdumAhrwWmSfpOKfmYqiDGbvHhOWskj+'
               + 'ysH9hyj2n/EvxRBsFQJBAJYT9NPJ+bLdAeFe27C7qT165yxjkD/JqW1xQzDGtI9x'
               + 'uwG7lXbt1Q380qJO0eT3Ey+da6iyJS6xpTuot8H4Bck='
-              + '-----END RSA PRIVATE KEY-----'
+              + '-----END RSA PRIVATE KEY-----',
   }
 };
 
-var chain = new Blockchain(users.master.public, users.master.private);
+var net = new Network(conf);
+var chain = new Blockchain(users.master.public, net);
 
-users.master.head = chain.masterHead;
+var rl;
+if(conf.enableInput){
+  rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  ask();
+}
 
-
-
-ask();
 function ask(){
   rl.question('chain-prototype>', (ans) => {
     var split = ans.split(' ');
@@ -53,6 +64,8 @@ function ask(){
       );
     } else if(split[0] == 'balance'){
       balance(split[1]);
+    } else if(split[0] == 'init'){
+
     }
     ask();
   });
@@ -90,9 +103,9 @@ function send(senderName, receiverName, amount){
   }
 
   var vhead = chain.validatedHeadCache[sender.public];
-
+  console.log(sender);
   var h = selectHead(sender.head, vhead);
-  var newHead = chain.send(h, sender.private, receiver.public, amount);
+  var newHead = chain.send(sender, receiver, amount);
   console.log(
     `Chain head ${shortenId(h)}`+
     ` => ${shortenId(newHead)}`
@@ -104,6 +117,8 @@ function send(senderName, receiverName, amount){
 }
 
 function selectHead(head, vhead){
+  console.log(head);
+  if(typeof head === 'undefined') return head;
   var t = chain.getTransaction(head);
   if(typeof t === 'undefined'){
     console.log('Warning: Current head was removed (probably was not valid). Continuing with last validated head.');
@@ -118,7 +133,7 @@ function receive(receiverName, tId){
   var vhead = chain.validatedHeadCache[receiver.public];
 
   var h = selectHead(receiver.head, vhead);
-  var newHead = chain.receive(h, receiver.private, tId);
+  var newHead = chain.receive(receiver, tId);
   console.log(
     `Chain head ${shortenId(h)}`+
     ` => ${shortenId(newHead)}`
@@ -142,7 +157,11 @@ function balance(name){
       console.log('Couldn\'t find head transaction.');
     } else {
       var o = ht.outputs.find(x => x.receiver == user.public);
-      console.log(`Balance at head transaction output: ${o.amount}`);
+      var amount = 0;
+      if(typeof o !== 'undefined'){
+        amount = o.amount;
+      }
+      console.log(`Balance at head transaction output: ${amount}`);
     }
   }
   if(typeof vhead !== 'undefined'){
@@ -151,7 +170,11 @@ function balance(name){
       console.log('Couldn\'t find vhead transaction.');
     } else {
       var o = vht.outputs.find(x => x.receiver == user.public);
-      console.log(`Balance at vhead transaction output: ${o.amount}`);
+      var amount = 0;
+      if(typeof o !== 'undefined'){
+        amount = o.amount;
+      }
+      console.log(`Balance at vhead transaction output: ${amount}`);
     }
   }
 }

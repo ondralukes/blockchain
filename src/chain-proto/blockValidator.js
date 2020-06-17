@@ -1,8 +1,9 @@
 const {workerData, parentPort} = require('worker_threads');
 var RSA = require('node-rsa');
 
-const logEnabled = false;
+const logEnabled = true;
 
+var master = workerData.master;
 var blocks = [];
 var resp = null;
 
@@ -38,7 +39,13 @@ async function validateBlock(block){
     var validated = 0;
     for(var i = 0;i<block.transactions.length;i++){
       var t = block.transactions[i];
-      if(!t.validated) await validateTransaction(t, block);
+      if(!t.validated) {
+        if(typeof t !== 'undefined'){
+          await validateTransaction(t, block);
+        } else {
+          console.log('WARN: T UNDEF');
+        }
+      }
       if(t.validated) validated++;
     }
     log(`[Validator] ==Validated ${validated}/${block.transactions.length}`);
@@ -122,6 +129,16 @@ async function validateTransaction(trans, block){
   }
   log(`[Validator] ======Total output: ${totalOutput}`);
 
+  if(totalOutput != totalInput){
+    if(trans.owner == master){
+      log("[Validator] ======Master transaction override.");
+    } else {
+      log(`[Validator] ======Input does not match output. Invalid.`);
+      trans.validated = true;
+      trans.valid = false;
+      return;
+    }
+  }
   log('[Validator] ======Verifying signature');
   var key = new RSA(trans.owner);
 
