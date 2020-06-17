@@ -64,8 +64,15 @@ function ask(){
       );
     } else if(split[0] == 'balance'){
       balance(split[1]);
-    } else if(split[0] == 'init'){
-
+    } else if(split[0] == 'dump'){
+      console.log('===Dump begin===');
+      console.log('Chain:');
+      console.dir(chain.blocks, {depth:null});
+      console.log('Pending blocks:');
+      console.dir(chain.pendingBlocks, {depth:null});
+      console.log('Pending transactions:');
+      console.dir(chain.pendingTransactions, {depth:null});
+      console.log('===Dump end===');
     }
     ask();
   });
