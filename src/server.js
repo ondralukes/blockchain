@@ -1,48 +1,50 @@
-var Blockchain = require('./blockchain');
-var Network = require('./network');
-const fs = require('fs');
-var RSA = require('node-rsa');
+const Blockchain = require('./blockchain');
+const Network = require('./network');
+const {readFileSync} = require('fs');
+const RSA = require('node-rsa');
 const readline = require('readline');
 
-var confFile = 'config.json';
+let confFile = 'config.json';
 if(process.argv.length < 3){
-  console.log('Loading deafult config file: config.json');
+  console.log('Loading default config file: config.json');
 } else {
   console.log(`Loading config file: ${process.argv[2]}`);
   confFile = process.argv[2];
 }
-var conf = JSON.parse(fs.readFileSync(confFile));
+const conf = JSON.parse(readFileSync(confFile));
 
-var users = {
-  master: {
+const users = new Map();
+users.set(
+    'master',
+    {
     public: '-----BEGIN PUBLIC KEY-----'
-            + 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCVyShgFEKqCVz0Zl3vAYGDJ9oz'
-            + 'Ox48NBJVjZOkZ8fNzZWY5+n/8KfnLxqWdbkXx0ZnjRLqhVSXbbfgoruDcw7gRE+X'
-            + 'OEGNCdjlifx0agsL8LMwE9UpV//VdoMuAjPlbPKiqtl9bEstdchJpPpyhymbYwR4'
-            + 'RRP7aGCw6Xg5Bx5HBQIDAQAB'
-            + '-----END PUBLIC KEY-----',
+        + 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCVyShgFEKqCVz0Zl3vAYGDJ9oz'
+        + 'Ox48NBJVjZOkZ8fNzZWY5+n/8KfnLxqWdbkXx0ZnjRLqhVSXbbfgoruDcw7gRE+X'
+        + 'OEGNCdjlifx0agsL8LMwE9UpV//VdoMuAjPlbPKiqtl9bEstdchJpPpyhymbYwR4'
+        + 'RRP7aGCw6Xg5Bx5HBQIDAQAB'
+        + '-----END PUBLIC KEY-----',
     private: '-----BEGIN RSA PRIVATE KEY-----'
-              + 'MIICXAIBAAKBgQCVyShgFEKqCVz0Zl3vAYGDJ9ozOx48NBJVjZOkZ8fNzZWY5+n/'
-              + '8KfnLxqWdbkXx0ZnjRLqhVSXbbfgoruDcw7gRE+XOEGNCdjlifx0agsL8LMwE9Up'
-              + 'V//VdoMuAjPlbPKiqtl9bEstdchJpPpyhymbYwR4RRP7aGCw6Xg5Bx5HBQIDAQAB'
-              + 'AoGAAkbAWlV0fekOhJhZrRw0v62HX2fyma+g57PzHniFTNdnAp/jqoQZySWqHcdE'
-              + 'PNxGcaRvOSk1k+eS99MBToodG71cEtG2caoqumGpBGRnCu8UUhCBm59iMlBJnLdh'
-              + 'Vzh+vVDFpIrRuKoqF55IcckXuhuoWmF9yAFlbmwsAXPMswECQQDu6YAx7Oj1+TSU'
-              + 'KkKz26Z3q3ISMGxEJh1pZFAebSEywujNFpQMkHCRS42ipS0QhQAoaF82fBII92EN'
-              + 'D6RvLRHxAkEAoH+/LRMAc2MmELThJ2w5vyIt27ADwzCsGoFOuh+LNZH1n1B0DOYN'
-              + 'HVpZNsAta/kd9Rf5vVSzGBoxojXJE8pyVQJAIn820n6p2LKGJArCHORPciIgU34I'
-              + 'dAKo5onkg7AwRfsc0Fg9Ql8s0d398ok1K5h4wFzpup1JoV/O9KrYjHEOkQJAc8pV'
-              + '8T3hOF3Si4EDYv6oVqVg8jp1LG/D6kdZtdumAhrwWmSfpOKfmYqiDGbvHhOWskj+'
-              + 'ysH9hyj2n/EvxRBsFQJBAJYT9NPJ+bLdAeFe27C7qT165yxjkD/JqW1xQzDGtI9x'
-              + 'uwG7lXbt1Q380qJO0eT3Ey+da6iyJS6xpTuot8H4Bck='
-              + '-----END RSA PRIVATE KEY-----',
-  }
-};
+        + 'MIICXAIBAAKBgQCVyShgFEKqCVz0Zl3vAYGDJ9ozOx48NBJVjZOkZ8fNzZWY5+n/'
+        + '8KfnLxqWdbkXx0ZnjRLqhVSXbbfgoruDcw7gRE+XOEGNCdjlifx0agsL8LMwE9Up'
+        + 'V//VdoMuAjPlbPKiqtl9bEstdchJpPpyhymbYwR4RRP7aGCw6Xg5Bx5HBQIDAQAB'
+        + 'AoGAAkbAWlV0fekOhJhZrRw0v62HX2fyma+g57PzHniFTNdnAp/jqoQZySWqHcdE'
+        + 'PNxGcaRvOSk1k+eS99MBToodG71cEtG2caoqumGpBGRnCu8UUhCBm59iMlBJnLdh'
+        + 'Vzh+vVDFpIrRuKoqF55IcckXuhuoWmF9yAFlbmwsAXPMswECQQDu6YAx7Oj1+TSU'
+        + 'KkKz26Z3q3ISMGxEJh1pZFAebSEywujNFpQMkHCRS42ipS0QhQAoaF82fBII92EN'
+        + 'D6RvLRHxAkEAoH+/LRMAc2MmELThJ2w5vyIt27ADwzCsGoFOuh+LNZH1n1B0DOYN'
+        + 'HVpZNsAta/kd9Rf5vVSzGBoxojXJE8pyVQJAIn820n6p2LKGJArCHORPciIgU34I'
+        + 'dAKo5onkg7AwRfsc0Fg9Ql8s0d398ok1K5h4wFzpup1JoV/O9KrYjHEOkQJAc8pV'
+        + '8T3hOF3Si4EDYv6oVqVg8jp1LG/D6kdZtdumAhrwWmSfpOKfmYqiDGbvHhOWskj+'
+        + 'ysH9hyj2n/EvxRBsFQJBAJYT9NPJ+bLdAeFe27C7qT165yxjkD/JqW1xQzDGtI9x'
+        + 'uwG7lXbt1Q380qJO0eT3Ey+da6iyJS6xpTuot8H4Bck='
+        + '-----END RSA PRIVATE KEY-----',
+    }
+);
 
-var net = new Network(conf);
-var chain = new Blockchain(users.master.public, net);
+const net = new Network(conf);
+const chain = new Blockchain(users.get('master').public, net);
 
-var rl;
+let rl;
 if(conf.enableInput){
   rl = readline.createInterface({
     input: process.stdin,
@@ -53,18 +55,18 @@ if(conf.enableInput){
 
 function ask(){
   rl.question('chain-prototype>', (ans) => {
-    var split = ans.split(' ');
-    if(split[0] == 'register'){
+    const split = ans.split(' ');
+    if(split[0] === 'register'){
       register(split[1]);
-    } else if(split[0] == 'send'){
+    } else if(split[0] === 'send'){
       send(
         split[1],
         split[2],
-        parseInt(split[3])
+        parseInt(split[3], 10)
       );
-    } else if(split[0] == 'balance'){
+    } else if(split[0] === 'balance'){
       balance(split[1]);
-    } else if(split[0] == 'dump'){
+    } else if(split[0] === 'dump'){
       console.log('===Dump begin===');
       console.log('Chain:');
       console.dir(chain.blocks, {depth:null});
@@ -79,13 +81,13 @@ function ask(){
 }
 
 function register(name){
-  if(users.hasOwnProperty(name)){
+  if(users.has(name)){
     console.log('Name already used.');
     return;
   }
 
-  var key = new RSA({b:1024});
-  var user = {
+  const key = new RSA({b: 1024});
+  const user = {
     public: key.exportKey('public'),
     private: key.exportKey('private')
   };
@@ -93,26 +95,25 @@ function register(name){
   user.head = chain.register(user.public, user.private);
   user.vhead = user.head;
 
-  users[name] = user;
+  users.set(name, user);
 }
 
 function send(senderName, receiverName, amount){
-  var sender = users[senderName];
+  const sender = users.get(senderName);
   if(typeof sender === 'undefined'){
     console.log(`No such user: ${senderName}.`);
     return;
   }
 
-  var receiver = users[receiverName];
+  const receiver = users.get(receiverName);
   if(typeof receiver === 'undefined'){
     console.log(`No such user: ${receiverName}.`);
     return;
   }
 
-  var vhead = chain.validatedHeadCache[sender.public];
-  console.log(sender);
-  var h = selectHead(sender.head, vhead);
-  var newHead = chain.send(sender, receiver, amount);
+  const vhead = chain.validatedHeadCache.get(sender.public);
+  const h = selectHead(sender.head, vhead);
+  const newHead = chain.send(sender, receiver, amount);
   console.log(
     `Chain head ${shortenId(h)}`+
     ` => ${shortenId(newHead)}`
@@ -124,23 +125,29 @@ function send(senderName, receiverName, amount){
 }
 
 function selectHead(head, vhead){
-  console.log(head);
-  if(typeof head === 'undefined') return head;
-  var t = chain.getTransaction(head);
-  if(typeof t === 'undefined'){
-    console.log('Warning: Current head was removed (probably was not valid). Continuing with last validated head.');
-    return vhead;
+  if(typeof head === 'undefined'){
+    if(typeof vhead === 'undefined'){
+      return head;
+    } else {
+      return vhead;
+    }
+  } else {
+    const t = chain.getTransaction(head);
+    if (typeof t === 'undefined') {
+      console.log('Warning: Current head was removed (probably was not valid). Continuing with last validated head.');
+      return vhead;
+    }
+    return head;
   }
-  return head;
 }
 
 function receive(receiverName, tId){
-  var receiver = users[receiverName];
+  const receiver = users.get(receiverName);
 
-  var vhead = chain.validatedHeadCache[receiver.public];
+  const vhead = chain.validatedHeadCache.get(receiver.public);
 
-  var h = selectHead(receiver.head, vhead);
-  var newHead = chain.receive(receiver, tId);
+  const h = selectHead(receiver.head, vhead);
+  const newHead = chain.receive(receiver, tId);
   console.log(
     `Chain head ${shortenId(h)}`+
     ` => ${shortenId(newHead)}`
@@ -149,22 +156,24 @@ function receive(receiverName, tId){
 }
 
 function balance(name){
-  var user = users[name];
+  let amount;
+  let o;
+  const user = users.get(name);
 
   if(typeof user === 'undefined'){
     console.log(`No such user: ${name}.`);
     return;
   }
 
-  var vhead = chain.validatedHeadCache[user.public];
+  const vhead = chain.validatedHeadCache.get(user.public);
   console.log(`head ${shortenId(user.head)} vhead ${shortenId(vhead)}`);
   if(typeof user.head !== 'undefined'){
     var ht = chain.getTransaction(user.head);
     if(typeof ht === 'undefined'){
       console.log('Couldn\'t find head transaction.');
     } else {
-      var o = ht.outputs.find(x => x.receiver == user.public);
-      var amount = 0;
+      o = ht.outputs.find(x => x.receiver === user.public);
+      amount = 0;
       if(typeof o !== 'undefined'){
         amount = o.amount;
       }
@@ -172,12 +181,12 @@ function balance(name){
     }
   }
   if(typeof vhead !== 'undefined'){
-    var vht = chain.getTransaction(vhead);
+    const vht = chain.getTransaction(vhead);
     if(typeof vht === 'undefined'){
       console.log('Couldn\'t find vhead transaction.');
     } else {
-      var o = vht.outputs.find(x => x.receiver == user.public);
-      var amount = 0;
+      o = vht.outputs.find(x => x.receiver === user.public);
+      amount = 0;
       if(typeof o !== 'undefined'){
         amount = o.amount;
       }
@@ -190,9 +199,9 @@ function shortenId(id){
   if(typeof id === 'undefined'){
     return '<invalid id>';
   }
-  var split = id.split('@');
-  var block = split[1];
-  var hash = split[0];
+  const split = id.split('@');
+  const block = split[1];
+  const hash = split[0];
 
   return `${shortenHash(hash)}@${block}`;
 }
@@ -200,17 +209,3 @@ function shortenId(id){
 function shortenHash(hash){
   return hash.substring(0,8);
 }
-
-// var t = chain.send(chain.masterTransaction, 'receiver', 250);
-//
-// var receiver = chain.register('receiver');
-//
-// receiver = chain.receive(receiver, t);
-// chain.send(receiver, 'master', 249);
-//
-// setTimeout(
-//   function (){
-//     receiver = chain.send(receiver, 'master', 1);
-//   },
-//   12000
-// );

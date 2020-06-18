@@ -1,26 +1,26 @@
 const {workerData, parentPort} = require('worker_threads');
-var RSA = require('node-rsa');
+const RSA = require('node-rsa');
 
 const logEnabled = true;
 
-var master = workerData.master;
-var blocks = [];
-var resp = null;
+const master = workerData.master;
+const blocks = [];
+let resp = null;
 
 parentPort.on('message', (m) => {
-  if(m.type == 'validate'){
+  if(m.type === 'validate'){
     blocks.push(m.block);
-  } else if(m.type == 'response'){
+  } else if(m.type === 'response'){
     resp = m.transaction;
   }
 });
 
 async function timer(){
-  if(blocks.length == 0){
+  if(blocks.length === 0){
     setTimeout(timer, 500);
     return;
   }
-  var block = blocks.pop();
+  const block = blocks.pop();
   await validateBlock(block);
   parentPort.postMessage({
     type: 'validated',
@@ -33,27 +33,22 @@ async function validateBlock(block){
   log(`[Validator] Validating block ${block.time}`);
   block.transactions.forEach((t) => t.validated = false);
 
-  var run = 0;
+  let run = 0;
   while(true){
     log(`[Validator] =Run ${run}`);
-    var validated = 0;
-    for(var i = 0;i<block.transactions.length;i++){
-      var t = block.transactions[i];
-      if(!t.validated) {
-        if(typeof t !== 'undefined'){
-          await validateTransaction(t, block);
-        } else {
-          console.log('WARN: T UNDEF');
-        }
-      }
+    let validated = 0;
+    for(let i = 0; i<block.transactions.length; i++){
+      const t = block.transactions[i];
+      if(!t.validated) await validateTransaction(t, block);
       if(t.validated) validated++;
     }
     log(`[Validator] ==Validated ${validated}/${block.transactions.length}`);
-    if(validated == block.transactions.length) break;
+    if(validated === block.transactions.length) break;
+    run++;
   }
 
   //Remove invalid
-  var passed = [];
+  const passed = [];
   block.transactions.forEach((t) => {
     if(t.valid){
       delete t.valid;
@@ -67,24 +62,25 @@ async function validateBlock(block){
 }
 
 async function validateTransaction(trans, block){
+  let t;
   log(`[Validator] ====Validating transaction ${shortenHash(trans.hash)}`);
-  if(Object.keys(trans).length != 6){ //Object properties + temporary 'validated'
+  if(Object.keys(trans).length !== 6){ //Object properties + temporary 'validated'
     log('[Validator] =====Invalid object structure. Invalid.');
     trans.validated = true;
     trans.valid = false;
     return;
   }
   log('[Validator] ======Validating inputs');
-  var totalInput = 0;
-  for(var i = 0;i<trans.inputs.length;i++){
-    var input = trans.inputs[i];
+  let totalInput = 0;
+  for(let i = 0; i<trans.inputs.length; i++){
+    const input = trans.inputs[i];
     log(`[Validator] =======Validating input ${shortenId(input)}`);
-    if(transactionBlock(input) != block.time){
+    if(transactionBlock(input) !== block.time){
       log('[Validator] ===========From older block.');
-      var t = await getTransaction(input);
+      t = await getTransaction(input);
     } else {
       log('[Validator] ===========From this block.');
-      var t = block.transactions.find(x => x.hash == transactionHash(input));
+      t = block.transactions.find(x => x.hash === transactionHash(input));
       if(!t.validated){
         log('[Validator] ===========Input depends on not validated transaction. Delaying validation.');
         return;
@@ -95,7 +91,7 @@ async function validateTransaction(trans, block){
         return;
       }
     }
-    var output = t.outputs.find(x => x.receiver == trans.owner);
+    const output = t.outputs.find(x => x.receiver === trans.owner);
     if(typeof output === 'undefined'){
       log('[Validator] ===========Input does not match any output.');
     } else {
@@ -104,10 +100,10 @@ async function validateTransaction(trans, block){
   }
   log(`[Validator] ======Total input: ${totalInput}`);
   log('[Validator] ======Validating outputs');
-  var totalOutput = 0;
-  var valid = true;
+  let totalOutput = 0;
+  let valid = true;
   trans.outputs.forEach(output => {
-    if(Object.keys(output).length != 2 ||
+    if(Object.keys(output).length !== 2 ||
       !Object.keys(output).includes('receiver') ||
       !Object.keys(output).includes('amount')){
       log('[Validator] =====Invalid object structure. Invalid.');
@@ -129,8 +125,8 @@ async function validateTransaction(trans, block){
   }
   log(`[Validator] ======Total output: ${totalOutput}`);
 
-  if(totalOutput != totalInput){
-    if(trans.owner == master){
+  if(totalOutput !== totalInput){
+    if(trans.owner === master){
       log("[Validator] ======Master transaction override.");
     } else {
       log(`[Validator] ======Input does not match output. Invalid.`);
@@ -140,9 +136,9 @@ async function validateTransaction(trans, block){
     }
   }
   log('[Validator] ======Verifying signature');
-  var key = new RSA(trans.owner);
+  const key = new RSA(trans.owner);
 
-  var signature = trans.signature;
+  const signature = trans.signature;
   delete trans.signature;
   delete trans.validated;
 
@@ -169,34 +165,34 @@ async function getTransaction(id){
       id: id
     });
 
-    var i = setInterval(
-      function(){
-        if(resp !== null){
-          clearInterval(i);
-          var r = resp;
-          resp = null;
-          resolve(r);
-        }
-      },
-      50
+    const i = setInterval(
+        function () {
+          if (resp !== null) {
+            clearInterval(i);
+            const r = resp;
+            resp = null;
+            resolve(r);
+          }
+        },
+        50
     );
   });
 }
 
 function transactionBlock(id){
-  var split = id.split('@');
-  return parseInt(split[1]);
+  const split = id.split('@');
+  return parseInt(split[1], 10);
 }
 
 function transactionHash(id){
-  var split = id.split('@');
+  const split = id.split('@');
   return split[0];
 }
 
 function shortenId(id){
-  var split = id.split('@');
-  var block = split[1];
-  var hash = split[0];
+  const split = id.split('@');
+  const block = split[1];
+  const hash = split[0];
 
   return `${shortenHash(hash)}@${block}`;
 }
