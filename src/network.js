@@ -14,7 +14,7 @@ module.exports = class Network {
       _this.receiveBroadcast(req, res);
     });
 
-    this.pendingBroadcasts = {};
+    this.pendingBroadcasts = new Map();
 
     this.server = this.app.listen(config.port);
   }
@@ -26,13 +26,13 @@ module.exports = class Network {
   receiveBroadcast(req, res){
     const broadcast = req.body;
     const hash = broadcast.hash;
-    if(this.pendingBroadcasts.hasOwnProperty(hash)){
+    if(this.pendingBroadcasts.has(hash)){
       res.end();
       return;
     }
     console.log(`[Network] Received broadcast ${shortenHash(hash)}`);
     this.chain.insertSignedTransaction(broadcast);
-    this.pendingBroadcasts[hash] = 1;
+    this.pendingBroadcasts.set(hash, 1);
     this.servers.forEach((s) => this.sendBroadcast(broadcast, s));
     res.end();
   }

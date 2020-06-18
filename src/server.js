@@ -13,8 +13,10 @@ if(process.argv.length < 3){
 }
 const conf = JSON.parse(readFileSync(confFile));
 
-const users = {
-  master: {
+const users = new Map();
+users.set(
+    'master',
+    {
     public: '-----BEGIN PUBLIC KEY-----'
         + 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCVyShgFEKqCVz0Zl3vAYGDJ9oz'
         + 'Ox48NBJVjZOkZ8fNzZWY5+n/8KfnLxqWdbkXx0ZnjRLqhVSXbbfgoruDcw7gRE+X'
@@ -36,11 +38,11 @@ const users = {
         + 'ysH9hyj2n/EvxRBsFQJBAJYT9NPJ+bLdAeFe27C7qT165yxjkD/JqW1xQzDGtI9x'
         + 'uwG7lXbt1Q380qJO0eT3Ey+da6iyJS6xpTuot8H4Bck='
         + '-----END RSA PRIVATE KEY-----',
-  }
-};
+    }
+);
 
 const net = new Network(conf);
-const chain = new Blockchain(users.master.public, net);
+const chain = new Blockchain(users.get('master').public, net);
 
 let rl;
 if(conf.enableInput){
@@ -79,7 +81,7 @@ function ask(){
 }
 
 function register(name){
-  if(users.hasOwnProperty(name)){
+  if(users.has(name)){
     console.log('Name already used.');
     return;
   }
@@ -93,24 +95,23 @@ function register(name){
   user.head = chain.register(user.public, user.private);
   user.vhead = user.head;
 
-  users[name] = user;
+  users.set(name, user);
 }
 
 function send(senderName, receiverName, amount){
-  const sender = users[senderName];
+  const sender = users.get(senderName);
   if(typeof sender === 'undefined'){
     console.log(`No such user: ${senderName}.`);
     return;
   }
 
-  const receiver = users[receiverName];
+  const receiver = users.get(receiverName);
   if(typeof receiver === 'undefined'){
     console.log(`No such user: ${receiverName}.`);
     return;
   }
 
-  const vhead = chain.validatedHeadCache[sender.public];
-  console.log(sender);
+  const vhead = chain.validatedHeadCache.get(sender.public);
   const h = selectHead(sender.head, vhead);
   const newHead = chain.send(sender, receiver, amount);
   console.log(
@@ -124,20 +125,26 @@ function send(senderName, receiverName, amount){
 }
 
 function selectHead(head, vhead){
-  console.log(head);
-  if(typeof head === 'undefined') return head;
-  const t = chain.getTransaction(head);
-  if(typeof t === 'undefined'){
-    console.log('Warning: Current head was removed (probably was not valid). Continuing with last validated head.');
-    return vhead;
+  if(typeof head === 'undefined'){
+    if(typeof vhead === 'undefined'){
+      return head;
+    } else {
+      return vhead;
+    }
+  } else {
+    const t = chain.getTransaction(head);
+    if (typeof t === 'undefined') {
+      console.log('Warning: Current head was removed (probably was not valid). Continuing with last validated head.');
+      return vhead;
+    }
+    return head;
   }
-  return head;
 }
 
 function receive(receiverName, tId){
-  const receiver = users[receiverName];
+  const receiver = users.get(receiverName);
 
-  const vhead = chain.validatedHeadCache[receiver.public];
+  const vhead = chain.validatedHeadCache.get(receiver.public);
 
   const h = selectHead(receiver.head, vhead);
   const newHead = chain.receive(receiver, tId);
@@ -151,14 +158,14 @@ function receive(receiverName, tId){
 function balance(name){
   let amount;
   let o;
-  const user = users[name];
+  const user = users.get(name);
 
   if(typeof user === 'undefined'){
     console.log(`No such user: ${name}.`);
     return;
   }
 
-  const vhead = chain.validatedHeadCache[user.public];
+  const vhead = chain.validatedHeadCache.get(user.public);
   console.log(`head ${shortenId(user.head)} vhead ${shortenId(vhead)}`);
   if(typeof user.head !== 'undefined'){
     var ht = chain.getTransaction(user.head);

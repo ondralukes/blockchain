@@ -13,7 +13,7 @@ module.exports = class Blockchain {
 
     this.blocks = [];
 
-    this.validatedHeadCache = {};
+    this.validatedHeadCache = new Map();
 
     const _this = this;
 
@@ -49,7 +49,7 @@ module.exports = class Blockchain {
     block.prevHash = objectHash(this.blocks[this.blocks.length - 1]);
     this.blocks.push(block);
     block.transactions.forEach((t) => {
-      this.validatedHeadCache[t.owner] = `${t.hash}@${block.time}`;
+      this.validatedHeadCache.set(t.owner, `${t.hash}@${block.time}`);
     });
   }
 
