@@ -8,7 +8,7 @@ module.exports = class Network {
 
     this.app.use(express.json());
 
-    var _this = this;
+    const _this = this;
     this.app.post('/broadcast', (req, res) =>
     {
       _this.receiveBroadcast(req, res);
@@ -24,8 +24,8 @@ module.exports = class Network {
   }
 
   receiveBroadcast(req, res){
-    var broadcast = req.body;
-    var hash = broadcast.hash;
+    const broadcast = req.body;
+    const hash = broadcast.hash;
     if(this.pendingBroadcasts.hasOwnProperty(hash)){
       res.end();
       return;
@@ -38,7 +38,7 @@ module.exports = class Network {
   }
 
   sendBroadcast(b, s){
-    var opt = {
+    const opt = {
       host: s.host,
       path: '/broadcast',
       port: s.port,
@@ -47,19 +47,19 @@ module.exports = class Network {
         'Content-Type': 'application/json'
       }
     };
-    var rq = http.request(
-      opt,
-      (res) => {
-        var body = '';
-        res.on('data', (chunk) => {
-          body += chunk;
-        });
+    const rq = http.request(
+        opt,
+        (res) => {
+          let body = '';
+          res.on('data', (chunk) => {
+            body += chunk;
+          });
 
-        res.on('end', () => {
-        });
-      }
+          res.on('end', () => {
+          });
+        }
     );
-    rq.on('error', (err) => {
+    rq.on('error', () => {
       console.log(`[Network] Warning: Connection to ${s.host}:${s.port} failed.`);
     });
 

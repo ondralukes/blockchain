@@ -1,6 +1,6 @@
 const {Worker} = require('worker_threads');
 const sha512 = require('crypto-js/sha512');
-var RSA = require('node-rsa');
+const RSA = require('node-rsa');
 const Base64 = require('crypto-js/enc-base64');
 
 module.exports = class Blockchain {
@@ -11,36 +11,11 @@ module.exports = class Blockchain {
     this.pendingBlocks = [];
     this.nextBlockTime = Math.ceil(timestamp() / 10) * 10;
 
-    //Create init transaction
-    // var initT = {
-    //   owner: 'init',
-    //   inputs: [],
-    //   outputs: [
-    //     {
-    //       amount: 1000000,
-    //       receiver: masterPub
-    //     }
-    //   ],
-    // };
-    // initT.hash = objectHash(initT);
-    // initT.signature = 'theres no signature';
+    this.blocks = [];
 
-    //Create init block
-    this.blocks = [
-      // {
-      //   time: this.nextBlockTime - 10,
-      //   transactions: [initT],
-      //   prevHash: 'z4PhNX7vuL3xVChQ1m2AB9Yg5AULVxXcg/SpIdNs6c5H0NE8XYXysP+DGNKHfuwvY7kxvUdBeoGlODJ6+SfaPg=='
-      // }
-    ];
+    this.validatedHeadCache = {};
 
-    // var initTId = `${initT.hash}@${this.nextBlockTime - 10}`;
-
-    this.validatedHeadCache = {
-      // masterPub: initTId
-    };
-
-    var _this = this;
+    const _this = this;
 
     this.validator = new Worker('./blockValidator.js', {
       workerData: {
@@ -50,17 +25,13 @@ module.exports = class Blockchain {
     this.validator.on('message', (b) => _this.handleWorkerMessage(b));
 
     setInterval(function(){_this.timer();}, 1000);
-
-    //Register master and receive money
-    // var masterHead = this.register(masterPub, masterPriv);
-    // this.masterHead = this.receive(masterHead, masterPriv, initTId);
   }
 
   handleWorkerMessage(message){
-    if(message.type == 'validated'){
+    if(message.type === 'validated'){
       this.handleValidated(message.block);
-    } else if(message.type == 'getTransaction'){
-      var transaction = this.getVerifiedTransaction(message.id);
+    } else if(message.type === 'getTransaction'){
+      const transaction = this.getVerifiedTransaction(message.id);
       this.validator.postMessage({
         type: 'response',
         transaction: transaction
@@ -83,13 +54,13 @@ module.exports = class Blockchain {
   }
 
   timer(){
-    var time = timestamp();
+    let time = timestamp();
     if(time >= this.nextBlockTime){
       //Copy array
-      var transactions = this.pendingTransactions.slice(0);
+      const transactions = this.pendingTransactions.slice(0);
       this.pendingTransactions = [];
 
-      var block = {
+      const block = {
         time: this.nextBlockTime,
         transactions: transactions
       };
@@ -100,34 +71,32 @@ module.exports = class Blockchain {
         block: block
       });
 
-      if(time == this.nextBlockTime) time++;
+      if(time === this.nextBlockTime) time++;
       this.nextBlockTime = Math.ceil(time / 10) * 10;
     }
   }
 
   register(pub, priv){
-    var r = {
+    const r = {
       owner: pub,
-      inputs:[],
+      inputs: [],
       outputs: []
     };
-
-
 
     return this.insertTransaction(r, priv);
   }
 
   send(sender, receiver, amount){
-    var balance = 0;
-    var head;
+    let balance = 0;
+    let head;
     if(typeof sender.head !== 'undefined'){
       head = this.getTransaction(sender.head);
       balance = this.getInputFromTransaction(head, head.owner);
     }
 
-    var remainder = balance - amount;
+    let remainder = balance - amount;
     if(remainder < 0) remainder = 0;
-    var transaction = {
+    let transaction = {
       owner: sender.public,
       inputs: [],
       outputs: [
@@ -144,21 +113,21 @@ module.exports = class Blockchain {
 
     if(typeof sender.head !== 'undefined') transaction.inputs.push(sender.head);
 
-    var newHeadId = this.insertTransaction(transaction,  sender.private);
+    const newHeadId = this.insertTransaction(transaction, sender.private);
 
     console.log(`[Blockchain] Sent ${amount}, now have ${balance - amount}`);
     return newHeadId;
   }
 
   receive(user, tId){
-    var head = this.getTransaction(user.head);
-    var t = this.getTransaction(tId);
-    var balance = this.getInputFromTransaction(head, head.owner);
-    var amount = this.getInputFromTransaction(t, head.owner);
+    const head = this.getTransaction(user.head);
+    const t = this.getTransaction(tId);
+    let balance = this.getInputFromTransaction(head, head.owner);
+    const amount = this.getInputFromTransaction(t, head.owner);
     balance += amount;
-    var r = {
+    const r = {
       owner: head.owner,
-      inputs:[
+      inputs: [
         user.head,
         tId
       ],
@@ -175,8 +144,8 @@ module.exports = class Blockchain {
   }
 
   getInputFromTransaction(t, recv){
-    var res = 0;
-    var output = t.outputs.find(x => x.receiver == recv);
+    let res = 0;
+    const output = t.outputs.find(x => x.receiver === recv);
     if(typeof output !== 'undefined'){
        res += output.amount;
     }
@@ -184,40 +153,39 @@ module.exports = class Blockchain {
   }
 
   getTransaction(id){
-    var split = id.split('@');
-    var block = parseInt(split[1]);
-    var hash = split[0];
+    const split = id.split('@');
+    const blockId = parseInt(split[1]);
+    const hash = split[0];
 
-    var block = this.blocks.find(x => x.time == block);
-
-    if(typeof block === 'undefined')
-      block = this.pendingBlocks.find(x => x.time == block);
+    let block = this.blocks.find(x => x.time === blockId);
 
     if(typeof block === 'undefined')
-      return this.pendingTransactions.find(x => x.hash == hash);
+      block = this.pendingBlocks.find(x => x.time === block);
 
-    return block.transactions.find(x => x.hash == hash);
+    if(typeof block === 'undefined')
+      return this.pendingTransactions.find(x => x.hash === hash);
+
+    return block.transactions.find(x => x.hash === hash);
   }
 
   getVerifiedTransaction(id){
-    var split = id.split('@');
-    var block = parseInt(split[1]);
-    var hash = split[0];
+    const split = id.split('@');
+    const blockId = parseInt(split[1]);
+    const hash = split[0];
 
-    var block = this.blocks.find(x => x.time == block);
+    const block = this.blocks.find(x => x.time === blockId);
     if(typeof block === 'undefined') return block;
-    return block.transactions.find(x => x.hash == hash);
+    return block.transactions.find(x => x.hash === hash);
   }
 
   insertTransaction(trans, priv){
     trans.hash = objectHash(trans);
-    var key = RSA(priv);
-    var signature = key.sign(
-      JSON.stringify(trans),
-      'base64',
-      'utf8'
+    const key = RSA(priv);
+    trans.signature = key.sign(
+        JSON.stringify(trans),
+        'base64',
+        'utf8'
     );
-    trans.signature = signature;
     this.net.broadcast(trans);
     return this.insertSignedTransaction(trans);
   }
