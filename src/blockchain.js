@@ -154,7 +154,7 @@ module.exports = class Blockchain {
 
   getTransaction(id){
     const split = id.split('@');
-    const blockId = parseInt(split[1]);
+    const blockId = parseInt(split[1], 10);
     const hash = split[0];
 
     let block = this.blocks.find(x => x.time === blockId);

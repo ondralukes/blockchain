@@ -49,15 +49,7 @@ module.exports = class Network {
     };
     const rq = http.request(
         opt,
-        (res) => {
-          let body = '';
-          res.on('data', (chunk) => {
-            body += chunk;
-          });
-
-          res.on('end', () => {
-          });
-        }
+        () => {}
     );
     rq.on('error', () => {
       console.log(`[Network] Warning: Connection to ${s.host}:${s.port} failed.`);
