@@ -170,7 +170,7 @@ module.exports = class Blockchain {
 
   getVerifiedTransaction(id){
     const split = id.split('@');
-    const blockId = parseInt(split[1]);
+    const blockId = parseInt(split[1], 10);
     const hash = split[0];
 
     const block = this.blocks.find(x => x.time === blockId);

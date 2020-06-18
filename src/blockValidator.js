@@ -181,7 +181,7 @@ async function getTransaction(id){
 
 function transactionBlock(id){
   const split = id.split('@');
-  return parseInt(split[1]);
+  return parseInt(split[1], 10);
 }
 
 function transactionHash(id){

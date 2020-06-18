@@ -62,7 +62,7 @@ function ask(){
       send(
         split[1],
         split[2],
-        parseInt(split[3])
+        parseInt(split[3], 10)
       );
     } else if(split[0] === 'balance'){
       balance(split[1]);
