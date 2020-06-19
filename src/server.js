@@ -141,7 +141,7 @@ async function balance(name){
     return;
   }
 
-  const vhead = await chain.getVHead(name.public);
+  const vhead = await chain.getVHead(user.public);
   if(typeof user.head !== 'undefined'){
     var ht = await chain.getTransaction(user.head);
     if(ht === null){
