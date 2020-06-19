@@ -81,7 +81,7 @@ module.exports = class Network {
     for(let s of this.servers){
       const opt = {
         host: s.host,
-        path: `/getTransaction`,
+        path: '/getTransaction',
         port: s.port,
         method: 'POST',
         headers: {
