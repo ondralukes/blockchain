@@ -1,7 +1,7 @@
 const {workerData, parentPort} = require('worker_threads');
 const RSA = require('node-rsa');
 
-const logEnabled = true;
+const logEnabled = false;
 
 const master = workerData.master;
 const blocks = [];
@@ -71,6 +71,7 @@ async function validateTransaction(trans, block){
     return;
   }
   log('[Validator] ======Validating inputs');
+  log(trans.inputs);
   let totalInput = 0;
   for(let i = 0; i<trans.inputs.length; i++){
     const input = trans.inputs[i];
@@ -190,6 +191,9 @@ function transactionHash(id){
 }
 
 function shortenId(id){
+  if(typeof id === 'undefined'){
+    return '<invalid id>';
+  }
   const split = id.split('@');
   const block = split[1];
   const hash = split[0];
