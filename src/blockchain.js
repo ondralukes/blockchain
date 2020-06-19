@@ -3,7 +3,22 @@ const sha512 = require('crypto-js/sha512');
 const RSA = require('node-rsa');
 const Base64 = require('crypto-js/enc-base64');
 
-module.exports = class Blockchain {
+const {log, warn} = require('./console');
+
+module.exports =
+    /**
+     * @property {boolean} insertLocally
+     * @property {Map} validatedHeadCache
+     * @property {Array} pendingTransactions
+     * @property {Array} pendingBlocks
+     * @property {Array} blocks
+     * @property {Number} nextBlockTime
+     * @property {Worker} validator
+     * @property {Network} net
+     * @property {string} masterPublicKey
+     * @type {Blockchain}
+     */
+    class Blockchain {
   constructor(masterPub, net){
     this.net = net;
     net.setChain(this);
@@ -14,6 +29,7 @@ module.exports = class Blockchain {
     this.blocks = [];
 
     this.validatedHeadCache = new Map();
+    this.masterPublicKey = masterPub;
 
     const _this = this;
 
@@ -27,11 +43,11 @@ module.exports = class Blockchain {
     setInterval(function(){_this.timer();}, 1000);
   }
 
-  handleWorkerMessage(message){
+  async handleWorkerMessage(message){
     if(message.type === 'validated'){
       this.handleValidated(message.block);
     } else if(message.type === 'getTransaction'){
-      const transaction = this.getVerifiedTransaction(message.id);
+      const transaction = await this.getTransaction(message.id, true);
       this.validator.postMessage({
         type: 'response',
         transaction: transaction
@@ -40,7 +56,7 @@ module.exports = class Blockchain {
   }
 
   handleValidated(block){
-    console.log(`[Blockchain] Received validated block ${block.time} with ${block.transactions.length} transactions`);
+    log(`[Blockchain] Received validated block ${block.time} with ${block.transactions.length} transactions`);
     this.pendingBlocks.splice(
       this.pendingBlocks.indexOf(block),
       1
@@ -86,12 +102,11 @@ module.exports = class Blockchain {
     return this.insertTransaction(r, priv);
   }
 
-  send(sender, receiver, amount){
+  async send(sender, receiver, amount){
     let balance = 0;
-    let head;
-    if(typeof sender.head !== 'undefined'){
-      head = this.getTransaction(sender.head);
-      balance = this.getInputFromTransaction(head, head.owner);
+    let head = await this.selectHead(sender);
+    if(head === null){
+      warn('[Blockchain] Warning: Continuing without head.');
     }
 
     let remainder = balance - amount;
@@ -111,7 +126,7 @@ module.exports = class Blockchain {
       ]
     };
 
-    if(typeof sender.head !== 'undefined') transaction.inputs.push(sender.head);
+    if(head !== null) transaction.inputs.push(sender.head);
 
     const newHeadId = this.insertTransaction(transaction, sender.private);
 
@@ -119,29 +134,88 @@ module.exports = class Blockchain {
     return newHeadId;
   }
 
-  receive(user, tId){
-    const head = this.getTransaction(user.head);
-    const t = this.getTransaction(tId);
-    let balance = this.getInputFromTransaction(head, head.owner);
-    const amount = this.getInputFromTransaction(t, head.owner);
+  async receive(user, tId){
+    const t = await this.getTransaction(tId);
+    const headId = await this.selectHead(user);
+
+    if(t === null){
+      warn('[Blockchain] Transaction invalid.');
+      return headId;
+    }
+
+    if(headId === null){
+      if(t.owner !== this.masterPublicKey) {
+        warn('No head selected. Transaction aborted.');
+        return;
+      }
+    }
+
+    if(headId === null) {
+      warn('[Blockchain] Warning: Continuing without head.');
+    }
+
+    let balance = 0;
+    let head;
+    if(headId !== null) {
+      head = await this.getTransaction(headId);
+      if(head !== null) {
+        balance = this.getInputFromTransaction(head, user.public);
+      } else {
+        warn('[Blockchain] Warning: Continuing without head.');
+      }
+    }
+    const amount = this.getInputFromTransaction(t, user.public);
     balance += amount;
     const r = {
-      owner: head.owner,
+      owner: user.public,
       inputs: [
-        user.head,
         tId
       ],
       outputs: [
         {
           amount: balance,
-          receiver: head.owner
+          receiver: user.public
         }
       ]
     };
 
-    console.log(`[Blockchain] Received ${amount}, now have ${balance}`);
+    if(headId !== null) r.inputs.push(headId);
+
+    log(`[Blockchain] Received ${amount}, now have ${balance}`);
     return this.insertTransaction(r, user.private);
   }
+
+  async selectHead(user){
+    let headValid = false;
+    let vheadValid = false;
+    if(typeof user.head !== 'undefined' && user.head !== null){
+      const t = await this.getTransaction(user.head);
+      if(t !== null){
+        headValid = true;
+      }
+    }
+
+    let vhead = await this.getVHead(user.public);
+    if(vhead !== null) vheadValid = true;
+
+    if(!vheadValid){
+      warn('[Blockchain] Cannot find any validated head. Try again later.');
+      return null;
+    }
+
+    if(!headValid){
+      return vhead;
+    }
+
+    if(vhead !== user.head){
+      warn('[Blockchain] Head transaction is not yet validated. Aborted.');
+      return null;
+    }
+
+    return vhead;
+  }
+
+
 
   getInputFromTransaction(t, recv){
     let res = 0;
@@ -152,23 +226,38 @@ module.exports = class Blockchain {
     return res;
   }
 
-  getTransaction(id){
+  async getTransaction(id, requireValidated = false){
     const split = id.split('@');
     const blockId = parseInt(split[1], 10);
     const hash = split[0];
 
+    if(requireValidated){
+      let t = this.getLocalVerifiedTransaction(id);
+      if(typeof t !== 'undefined') return t;
+      return await this.net.getRemoteTransaction(id);
+    }
     let block = this.blocks.find(x => x.time === blockId);
+    if(typeof block !== 'undefined'){
+      let t = block.transactions.find(x => x.hash === hash);
+      if(typeof t !== 'undefined') return t;
+    }
 
-    if(typeof block === 'undefined')
-      block = this.pendingBlocks.find(x => x.time === block);
+    block = this.pendingBlocks.find(x => x.time === blockId)
+    if(typeof block !== 'undefined'){
+      let t = block.transactions.find(x => x.hash === hash);
+      if(typeof t !== 'undefined') return t;
+    }
 
-    if(typeof block === 'undefined')
-      return this.pendingTransactions.find(x => x.hash === hash);
+    let t = this.pendingTransactions.find(x => x.hash === hash);
 
-    return block.transactions.find(x => x.hash === hash);
+    if(typeof t === 'undefined') {
+      return await this.net.getRemoteTransaction(id);
+    }
+
+    return t;
   }
 
-  getVerifiedTransaction(id){
+  getLocalVerifiedTransaction(id){
     const split = id.split('@');
     const blockId = parseInt(split[1], 10);
     const hash = split[0];
@@ -176,6 +265,14 @@ module.exports = class Blockchain {
     const block = this.blocks.find(x => x.time === blockId);
     if(typeof block === 'undefined') return block;
     return block.transactions.find(x => x.hash === hash);
+  }
+
+  async getVHead(publicKey){
+    if(this.validatedHeadCache.has(publicKey)){
+      return this.validatedHeadCache.get(publicKey);
+    } else {
+      return await this.net.getRemoteVHead(publicKey);
+    }
   }
 
   insertTransaction(trans, priv){
@@ -187,7 +284,11 @@ module.exports = class Blockchain {
         'utf8'
     );
     this.net.broadcast(trans);
-    return this.insertSignedTransaction(trans);
+    if(this.insertLocally){
+      return this.insertSignedTransaction(trans);
+    } else {
+      return `${trans.hash}@${this.nextBlockTime}`;
+    }
   }
 
   insertSignedTransaction(trans){

@@ -4,11 +4,13 @@ const {readFileSync} = require('fs');
 const RSA = require('node-rsa');
 const readline = require('readline');
 
+const {log, warn} = require('./console');
+
 let confFile = 'config.json';
 if(process.argv.length < 3){
-  console.log('Loading default config file: config.json');
+  log('Loading default config file: config.json');
 } else {
-  console.log(`Loading config file: ${process.argv[2]}`);
+  log(`Loading config file: ${process.argv[2]}`);
   confFile = process.argv[2];
 }
 const conf = JSON.parse(readFileSync(confFile));
@@ -54,27 +56,33 @@ if(conf.enableInput){
 }
 
 function ask(){
-  rl.question('chain-prototype>', (ans) => {
+  rl.question('chain-prototype>', async (ans) => {
     const split = ans.split(' ');
     if(split[0] === 'register'){
       register(split[1]);
     } else if(split[0] === 'send'){
-      send(
+      await send(
         split[1],
         split[2],
         parseInt(split[3], 10)
       );
+    } else if(split[0] === 'receive'){
+      await receive(split[1], split[2]);
     } else if(split[0] === 'balance'){
-      balance(split[1]);
+      await balance(split[1]);
     } else if(split[0] === 'dump'){
-      console.log('===Dump begin===');
-      console.log('Chain:');
+      log('===Dump begin===');
+      log('Chain:');
       console.dir(chain.blocks, {depth:null});
-      console.log('Pending blocks:');
+      log('Pending blocks:');
       console.dir(chain.pendingBlocks, {depth:null});
-      console.log('Pending transactions:');
+      log('Pending transactions:');
       console.dir(chain.pendingTransactions, {depth:null});
-      console.log('===Dump end===');
+      log('===Dump end===');
+    } else if (split[0] === 'local'){
+      var localLog = split[1] === 'true';
+      chain.insertLocally = localLog;
+      log('Local blockchain insertion is ' + localLog);
     }
     ask();
   });
@@ -82,7 +90,7 @@ function ask(){
 
 function register(name){
   if(users.has(name)){
-    console.log('Name already used.');
+    warn('Name already used.');
     return;
   }
 
@@ -93,104 +101,72 @@ function register(name){
   };
 
   user.head = chain.register(user.public, user.private);
-  user.vhead = user.head;
+  log(`Registred, head = ${shortenId(user.head)}`);
 
   users.set(name, user);
 }
 
-function send(senderName, receiverName, amount){
+async function send(senderName, receiverName, amount){
   const sender = users.get(senderName);
   if(typeof sender === 'undefined'){
-    console.log(`No such user: ${senderName}.`);
+    warn(`No such user: ${senderName}.`);
     return;
   }
 
   const receiver = users.get(receiverName);
   if(typeof receiver === 'undefined'){
-    console.log(`No such user: ${receiverName}.`);
+    warn(`No such user: ${receiverName}.`);
     return;
   }
 
-  const vhead = chain.validatedHeadCache.get(sender.public);
-  const h = selectHead(sender.head, vhead);
-  const newHead = chain.send(sender, receiver, amount);
-  console.log(
-    `Chain head ${shortenId(h)}`+
-    ` => ${shortenId(newHead)}`
-  );
+  const newHead = await chain.send(sender, receiver, amount);
   sender.head = newHead;
 
-  console.log(`Receiving transaction ${shortenId(newHead)}`);
-  receive(receiverName, newHead);
+  log(`Transaction id is ${newHead}`);
 }
 
-function selectHead(head, vhead){
-  if(typeof head === 'undefined'){
-    if(typeof vhead === 'undefined'){
-      return head;
-    } else {
-      return vhead;
-    }
-  } else {
-    const t = chain.getTransaction(head);
-    if (typeof t === 'undefined') {
-      console.log('Warning: Current head was removed (probably was not valid). Continuing with last validated head.');
-      return vhead;
-    }
-    return head;
-  }
-}
-
-function receive(receiverName, tId){
+async function receive(receiverName, tId){
   const receiver = users.get(receiverName);
 
-  const vhead = chain.validatedHeadCache.get(receiver.public);
-
-  const h = selectHead(receiver.head, vhead);
-  const newHead = chain.receive(receiver, tId);
-  console.log(
-    `Chain head ${shortenId(h)}`+
-    ` => ${shortenId(newHead)}`
-  );
-  receiver.head = newHead;
+  receiver.head = await chain.receive(receiver, tId);
 }
 
-function balance(name){
+async function balance(name){
   let amount;
   let o;
   const user = users.get(name);
 
   if(typeof user === 'undefined'){
-    console.log(`No such user: ${name}.`);
+    warn(`No such user: ${name}.`);
     return;
   }
 
-  const vhead = chain.validatedHeadCache.get(user.public);
-  console.log(`head ${shortenId(user.head)} vhead ${shortenId(vhead)}`);
+  const vhead = await chain.getVHead(name.public);
   if(typeof user.head !== 'undefined'){
-    var ht = chain.getTransaction(user.head);
-    if(typeof ht === 'undefined'){
-      console.log('Couldn\'t find head transaction.');
+    var ht = await chain.getTransaction(user.head);
+    if(ht === null){
+      warn('Couldn\'t find head transaction.');
     } else {
       o = ht.outputs.find(x => x.receiver === user.public);
       amount = 0;
       if(typeof o !== 'undefined'){
         amount = o.amount;
       }
-      console.log(`Balance at head transaction output: ${amount}`);
+      log(`Balance at head transaction output: ${amount}`);
     }
   }
-  if(typeof vhead !== 'undefined'){
-    const vht = chain.getTransaction(vhead);
-    if(typeof vht === 'undefined'){
-      console.log('Couldn\'t find vhead transaction.');
+  if(vhead !== null){
+    console.log(vhead);
+    const vht = await chain.getTransaction(vhead);
+    if(vht === null){
+      warn('Couldn\'t find vhead transaction.');
     } else {
       o = vht.outputs.find(x => x.receiver === user.public);
       amount = 0;
       if(typeof o !== 'undefined'){
         amount = o.amount;
       }
-      console.log(`Balance at vhead transaction output: ${amount}`);
+      log(`Balance at vhead transaction output: ${amount}`);
     }
   }
 }
