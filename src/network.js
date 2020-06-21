@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const WebUI = require('./webui');
 
 const {log, warn} = require('./console');
 
@@ -26,6 +27,10 @@ module.exports = class Network {
       _this.getVHead(req, res);
     })
 
+    if(config.webUI){
+      log('[Network] Enabled Web UI');
+      this.webui = new WebUI(this.app);
+    }
     this.pendingBroadcasts = new Map();
 
     this.server = this.app.listen(config.port);

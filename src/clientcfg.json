@@ -7,5 +7,6 @@
     }
   ],
   "port": 8081,
-  "enableInput": true
+  "enableInput": true,
+  "webUI": true
 }
