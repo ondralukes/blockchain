@@ -10,10 +10,10 @@ function register() {
     xhttp.onreadystatechange = function () {
         if(xhttp.readyState === 4){
             if(xhttp.status === 200){
-                console.log('success');
+                success('Success.');
             } else if(xhttp.status === 500){
                 const body = JSON.parse(xhttp.responseText);
-                console.log(`Error: ${body.message}`);
+                error(body.message);
             }
         }
     }
@@ -24,4 +24,18 @@ function register() {
             name: document.getElementById('name-input').value
         }
     ));
+    clearStatus();
+}
+
+function clearStatus(){
+    error('');
+    success('');
+}
+
+function error(msg) {
+    document.getElementById('error-text').innerHTML = msg;
+}
+
+function success(msg) {
+    document.getElementById('success-text').innerHTML = msg;
 }

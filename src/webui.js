@@ -4,6 +4,7 @@ const RSA = require('node-rsa');
 module.exports =
     /**
      * @property {Map} users
+     * @property {Blockchain} chain
      */
     class WebUI {
     constructor(app) {
@@ -38,6 +39,8 @@ module.exports =
 
         const _this = this;
         app.post('/ui/register', (req, res) => _this.register(req, res));
+        app.post('/ui/login', (req, res) => _this.login(req, res));
+        app.post('/ui/getPublic', (req, res) => _this.getPublic(req, res));
     }
 
     register(req, res){
@@ -62,7 +65,8 @@ module.exports =
         const key = new RSA({b: 1024});
         const user = {
             public: key.exportKey('public'),
-            private: key.exportKey('private')
+            private: key.exportKey('private'),
+            head: null
         };
 
         this.users.set(name, user);
@@ -72,6 +76,59 @@ module.exports =
                 publicKey: user.public
             }
         ));
+    }
+
+    async login(req, res){
+        let name;
+        if((name = this.getRequestName(req, res)) === null) return;
+
+        const user = this.users.get(name);
+        res.setHeader('Content-Type', 'application/json');
+
+        const vhead = await this.chain.getVHead(user.public);
+        console.log(vhead);
+        res.end(JSON.stringify(
+            {
+                publicKey: user.public,
+                head: user.head,
+                vhead: await this.chain.getVHead(user.public)
+            }
+        ));
+    }
+
+    getPublic(req, res){
+        let name;
+        if((name = this.getRequestName(req, res)) === null) return;
+
+        const user = this.users.get(name);
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(
+            {
+                publicKey: user.public,
+            }
+        ));
+    }
+
+    getRequestName(req, res){
+        const name = req.body.name;
+        if(typeof name === 'undefined'){
+            res.status(400);
+            res.end();
+            return null;
+        }
+
+        if(!this.users.has(name)){
+            res.status(500);
+            res.setHeader('Content-Type', 'application/json');
+            res.write(JSON.stringify(
+                {
+                    message: 'This user does not exist.'
+                }
+            ));
+            res.end();
+            return null;
+        }
+        return name;
     }
 }
 

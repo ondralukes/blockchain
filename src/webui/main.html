@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+          integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <title>Blockchain</title>
+    <script src="main.js"></script>
+</head>
+<body>
+<div class="container">
+    <h1 class="text-center my-2">Account</h1>
+    <input class="form-control my-3" type="text" placeholder="Username" id="name-input">
+    <button
+            type="button"
+            class="btn btn-outline-primary my-3 col-12"
+            id="login-btn">
+        Check
+    </button>
+
+    <div class="row align-items-center my-1">
+        <span class="col-4">Public key</span>
+        <input id="public-key" class="text col-8 form-control" placeholder="Public key" readonly>
+    </div>
+    <div class="row align-items-center my-1">
+        <span class="col-4">Chain head</span>
+        <input id="head" class="text col-8 form-control" placeholder="Chain head" readonly>
+    </div>
+    <div class="row align-items-center my-1">
+        <span class="col-4">Validated chain head</span>
+        <input id="vhead" class="text col-8 form-control" placeholder="Validated chain head" readonly>
+    </div>
+
+    <h2 class="text-center">Send</h2>
+    <div class="row my-2">
+        <input
+                id="receiver-name"
+                class="form-control col-8"
+                type="text"
+                placeholder="Receiver's username">
+        <button
+                id="get-receiver-key-btn"
+                class="btn btn-outline-primary col-4"
+                type="button">
+            Get public key
+        </button>
+    </div>
+    <div class="row my-2">
+        <input
+                id="receiver-key"
+                class="form-control col-12"
+                type="text"
+                placeholder="Receiver's public key">
+    </div>
+    <div class="row my-2">
+        <input
+                id="send-amount"
+                class="col-12 form-control"
+                type="text"
+                placeholder="Amount">
+    </div>
+    <div class="row my-2">
+        <button
+                id="send-btn"
+                type="button"
+                class="btn btn-outline-danger col-12">
+            Send
+        </button>
+    </div>
+</div>
+</body>
+</html>

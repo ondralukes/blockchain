@@ -38,6 +38,7 @@ module.exports = class Network {
 
   setChain(chain){
     this.chain = chain;
+    this.webui.chain = chain;
   }
 
   getTransaction(req,res){
@@ -174,6 +175,7 @@ module.exports = class Network {
       );
       rq.on('error', () => {
         warn(`[Network] Warning: Connection to ${opt.host}:${opt.port} failed.`);
+        resolve();
       });
 
       if(typeof body !== 'undefined')
