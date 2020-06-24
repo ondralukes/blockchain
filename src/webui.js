@@ -121,10 +121,11 @@ module.exports =
             return;
         }
 
-        warn('Got transaction from UI:');
-        warn(transaction);
-        res.end();
-        warn(this.chain.insertSignedTransaction(transaction, true));
+        const tId = this.chain.insertSignedTransaction(transaction, true);
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({
+                id: tId
+            }));
     }
 
     getRequestName(req, res){

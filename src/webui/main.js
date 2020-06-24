@@ -9,6 +9,8 @@ let preparedTransaction = null;
 
 function init() {
     document.getElementById('confirmation').style.display = 'none';
+    document.getElementById('result-prompt').style.display = 'none';
+
     document.getElementById('login-btn')
         .addEventListener('click', login);
     document.getElementById('get-receiver-key-btn')
@@ -23,6 +25,9 @@ function init() {
         .addEventListener('click', closeConfirmation);
     document.getElementById('confirmation-yes')
         .addEventListener('click', confirmTransaction);
+
+    document.getElementById('result-ok-btn')
+        .addEventListener('click', closeResult);
     updateState();
 }
 
@@ -127,7 +132,13 @@ function confirmTransaction(){
         {
             transaction: preparedTransaction
         },
-        (xhttp) => {}
+        (xhttp) => {
+            if(xhttp.status === 200){
+                document.getElementById('result-tid')
+                    .innerText = JSON.parse(xhttp.responseText).id;
+                document.getElementById('result-prompt').style.display = '';
+            }
+        }
     );
     closeConfirmation();
 }
@@ -135,7 +146,7 @@ function confirmTransaction(){
 function request(url, data, callback) {
     const xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function () {
-        callback(xhttp);
+        if(xhttp.readyState === 4) callback(xhttp);
     }
     xhttp.open('POST', url, true);
     xhttp.setRequestHeader('Content-Type', 'application/json');
@@ -182,6 +193,10 @@ function updateState() {
 
 function closeConfirmation() {
     document.getElementById('confirmation').style.display = 'none';
+}
+
+function closeResult() {
+    document.getElementById('result-prompt').style.display = 'none';
 }
 
 function showConfirmation() {
