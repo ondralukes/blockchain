@@ -291,7 +291,9 @@ module.exports =
     }
   }
 
-  insertSignedTransaction(trans){
+
+  insertSignedTransaction(trans, broadcast = false){
+    if(broadcast) this.net.broadcast(trans);
     this.pendingTransactions.push(trans);
     return `${trans.hash}@${this.nextBlockTime}`;
   }

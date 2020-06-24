@@ -1,11 +1,14 @@
 window.addEventListener('DOMContentLoaded', init);
 
-let selectedName = null;
-let selectedKey = null;
+let selectedPublicKey = null;
+let selectedPrivateKey = null;
 let selectedVHead = null;
 let selectedHead = null;
 
+let preparedTransaction = null;
+
 function init() {
+    document.getElementById('confirmation').style.display = 'none';
     document.getElementById('login-btn')
         .addEventListener('click', login);
     document.getElementById('get-receiver-key-btn')
@@ -15,6 +18,11 @@ function init() {
 
     document.getElementById('receiver-key').addEventListener('input', updateState);
     document.getElementById('send-amount').addEventListener('input',updateState);
+
+    document.getElementById('confirmation-no')
+        .addEventListener('click', closeConfirmation);
+    document.getElementById('confirmation-yes')
+        .addEventListener('click', confirmTransaction);
     updateState();
 }
 
@@ -24,11 +32,13 @@ function login() {
     };
     request('ui/login', data, (xhttp) => {
 
-        selectedKey = null;
+        selectedPrivateKey = null;
+        selectedPublicKey = null;
         selectedHead = null;
         selectedVHead = null;
 
         document.getElementById('public-key').value = '';
+        document.getElementById('private-key').value = '';
         document.getElementById('head').value = '';
         document.getElementById('vhead').value = '';
 
@@ -36,6 +46,7 @@ function login() {
             if(xhttp.status === 200){
                 const body = JSON.parse(xhttp.responseText);
                 document.getElementById('public-key').value = body.publicKey;
+                document.getElementById('private-key').value = body.privateKey;
                 if(body.head !== null){
                     document.getElementById('head').value = body.head;
                 } else {
@@ -47,7 +58,8 @@ function login() {
                     document.getElementById('vhead').value = '(none)';
                 }
 
-                selectedKey = body.publicKey;
+                selectedPublicKey = body.publicKey;
+                selectedPrivateKey = body.privateKey;
                 selectedHead = body.head;
                 selectedVHead = body.vhead;
             } else if(xhttp.status === 500){
@@ -79,7 +91,7 @@ function getReceiverKey() {
 function send(){
     const amount = parseInt(document.getElementById('send-amount').value);
     const transaction = {
-        owner: selectedKey,
+        owner: selectedPublicKey,
         inputs: [],
         outputs: [
             {
@@ -87,13 +99,37 @@ function send(){
                 receiver: document.getElementById('receiver-key').value
             }
         ]
-    }
+    };
 
     if(selectedHead !== null){
         transaction.inputs.push(selectedHead);
+    } else if(selectedVHead !== null){
+        transaction.inputs.push(selectedVHead);
     }
 
-    //TODO: hash, sign, and send transaction
+    transaction.hash = objectHash(transaction);
+
+    const key = new NodeRSA(selectedPrivateKey);
+
+    transaction.signature = key.sign(
+        JSON.stringify(transaction),
+        'base64',
+        'utf8'
+    );
+
+    preparedTransaction = transaction;
+    showConfirmation();
+}
+
+function confirmTransaction(){
+    request(
+        'ui/send',
+        {
+            transaction: preparedTransaction
+        },
+        (xhttp) => {}
+    );
+    closeConfirmation();
 }
 
 function request(url, data, callback) {
@@ -108,7 +144,7 @@ function request(url, data, callback) {
 
 function updateState() {
     const sendButton = document.getElementById('send-btn');
-    if(selectedKey === null){
+    if(selectedPublicKey === null){
         sendButton.innerText = 'Please log in.';
         sendButton.disabled = true;
         sendButton.classList.remove('btn-outline-primary');
@@ -142,4 +178,26 @@ function updateState() {
     sendButton.disabled = false;
     sendButton.classList.add('btn-outline-primary');
     sendButton.classList.remove('btn-outline-danger');
+}
+
+function closeConfirmation() {
+    document.getElementById('confirmation').style.display = 'none';
+}
+
+function showConfirmation() {
+    document.getElementById('confirmation-json')
+        .innerText = JSON.stringify(
+        preparedTransaction,
+        null,
+        ' '
+    );
+    document.getElementById('confirmation').style.display = '';
+}
+
+function hash(str){
+    return CryptoJS.enc.Base64.stringify(CryptoJS.SHA512(str));
+}
+
+function objectHash(obj){
+    return hash(JSON.stringify(obj));
 }

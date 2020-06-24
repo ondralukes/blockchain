@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
           integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link rel="stylesheet" href="main.css">
     <title>Blockchain</title>
     <script src="main.js"></script>
+    <script src="NodeRSA.js"></script>
+    <script src="crypto-js.js"></script>
 </head>
 <body>
 <div class="container">
@@ -21,6 +24,10 @@
     <div class="row align-items-center my-1">
         <span class="col-4">Public key</span>
         <input id="public-key" class="text col-8 form-control" placeholder="Public key" readonly>
+    </div>
+    <div class="row align-items-center my-1">
+        <span class="col-4">Private key</span>
+        <input id="private-key" class="text col-8 form-control" placeholder="Public key" readonly>
     </div>
     <div class="row align-items-center my-1">
         <span class="col-4">Chain head</span>
@@ -66,6 +73,28 @@
                 class="btn btn-outline-danger col-12">
             Send
         </button>
+    </div>
+    <div class="center-overlay" id="confirmation">
+        <h2 class="text-center">Confirmation</h2>
+        <div class="text-center">
+            Do you want to add the following transaction to the blockchain?
+        </div>
+        <div class="code" id="confirmation-json">
+            {
+            ff
+            }
+        </div>
+        <div class="text-danger text-center">
+            This action cannot be undone.
+        </div>
+        <div class="row justify-content-around">
+            <button id="confirmation-no" class="btn btn-primary col-4">
+                No
+            </button>
+            <button id="confirmation-yes" class="btn btn-outline-danger col-4">
+                Yes
+            </button>
+        </div>
     </div>
 </div>
 </body>

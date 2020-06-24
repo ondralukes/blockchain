@@ -1,5 +1,6 @@
 const express = require('express');
 const RSA = require('node-rsa');
+const {log, warn} = require('./console');
 
 module.exports =
     /**
@@ -33,6 +34,7 @@ module.exports =
                     + 'ysH9hyj2n/EvxRBsFQJBAJYT9NPJ+bLdAeFe27C7qT165yxjkD/JqW1xQzDGtI9x'
                     + 'uwG7lXbt1Q380qJO0eT3Ey+da6iyJS6xpTuot8H4Bck='
                     + '-----END RSA PRIVATE KEY-----',
+                head: null
             }
         );
         app.use(express.static('webui'));
@@ -41,6 +43,7 @@ module.exports =
         app.post('/ui/register', (req, res) => _this.register(req, res));
         app.post('/ui/login', (req, res) => _this.login(req, res));
         app.post('/ui/getPublic', (req, res) => _this.getPublic(req, res));
+        app.post('/ui/send', (req, res) => _this.send(req, res));
     }
 
     register(req, res){
@@ -90,6 +93,7 @@ module.exports =
         res.end(JSON.stringify(
             {
                 publicKey: user.public,
+                privateKey: user.private,
                 head: user.head,
                 vhead: await this.chain.getVHead(user.public)
             }
@@ -107,6 +111,20 @@ module.exports =
                 publicKey: user.public,
             }
         ));
+    }
+
+    send(req, res){
+        const transaction = req.body.transaction;
+        if(typeof transaction === 'undefined'){
+            res.status(400);
+            res.end();
+            return;
+        }
+
+        warn('Got transaction from UI:');
+        warn(transaction);
+        res.end();
+        warn(this.chain.insertSignedTransaction(transaction, true));
     }
 
     getRequestName(req, res){
