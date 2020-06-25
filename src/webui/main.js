@@ -19,6 +19,8 @@ function init() {
         .addEventListener('click', getReceiverKey);
     document.getElementById('send-btn')
         .addEventListener('click', send);
+    document.getElementById('receive-btn')
+        .addEventListener('click', receive);
 
     document.getElementById('receiver-key').addEventListener('input', updateState);
     document.getElementById('send-amount').addEventListener('input',updateState);
@@ -83,6 +85,8 @@ function login() {
 function getBalances(){
     headBalance = 0;
     vheadBalance = 0;
+    document.getElementById('balance').innerText = '0';
+
     if(selectedVHead !== null){
         request(
             'ui/get',
@@ -93,6 +97,7 @@ function getBalances(){
                 if(xhttp.status === 200){
                     const t = JSON.parse(xhttp.responseText);
                     vheadBalance = getInputFromTransaction(t, selectedPublicKey);
+                    document.getElementById('balance').innerText = vheadBalance;
                 }
             }
         )

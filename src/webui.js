@@ -72,7 +72,7 @@ module.exports =
             private: key.exportKey('private').replace(/\n/g, ''),
             head: null
         };
-        
+
         this.users.set(name, user);
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify(
@@ -122,6 +122,7 @@ module.exports =
         }
 
         const tId = this.chain.insertSignedTransaction(transaction, true);
+
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({
                 id: tId
