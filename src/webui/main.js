@@ -4,8 +4,6 @@ let selectedName = null;
 let selectedPublicKey = null;
 let selectedPrivateKey = null;
 let selectedVHead = null;
-let selectedHead = null;
-let headBalance = null;
 let vheadBalance = null;
 
 let preparedTransaction = null;
@@ -58,12 +56,10 @@ function login(name) {
 
         selectedPrivateKey = null;
         selectedPublicKey = null;
-        selectedHead = null;
         selectedVHead = null;
 
         document.getElementById('public-key').value = '';
         document.getElementById('private-key').value = '';
-        document.getElementById('head').value = '';
         document.getElementById('vhead').value = '';
 
         if(xhttp.readyState === 4){
@@ -71,11 +67,6 @@ function login(name) {
                 const body = JSON.parse(xhttp.responseText);
                 document.getElementById('public-key').value = body.publicKey;
                 document.getElementById('private-key').value = body.privateKey;
-                if(body.head !== null){
-                    document.getElementById('head').value = body.head;
-                } else {
-                    document.getElementById('head').value = '(none)';
-                }
                 if(body.vhead !== null){
                     document.getElementById('vhead').value = body.vhead;
                 } else {
@@ -84,7 +75,6 @@ function login(name) {
 
                 selectedPublicKey = body.publicKey;
                 selectedPrivateKey = body.privateKey;
-                selectedHead = body.head;
                 selectedVHead = body.vhead;
                 getBalances();
             }
@@ -94,7 +84,6 @@ function login(name) {
 }
 
 function getBalances(){
-    headBalance = 0;
     vheadBalance = 0;
     document.getElementById('balance').innerText = '0';
 
@@ -109,20 +98,6 @@ function getBalances(){
                     const t = JSON.parse(xhttp.responseText);
                     vheadBalance = getInputFromTransaction(t, selectedPublicKey);
                     document.getElementById('balance').innerText = vheadBalance;
-                }
-            }
-        )
-    }
-    if(selectedHead !== null){
-        request(
-            'ui/get',
-            {
-                id: selectedHead
-            },
-            (xhttp) => {
-                if(xhttp.status === 200){
-                    const t = JSON.parse(xhttp.responseText);
-                    headBalance = getInputFromTransaction(t, selectedPublicKey);
                 }
             }
         )
@@ -169,15 +144,7 @@ function send(){
         ]
     };
 
-    if(selectedHead !== null){
-        transaction.inputs.push(selectedHead);
-        transaction.outputs.push(
-            {
-                receiver: selectedPublicKey,
-                amount: headBalance - amount
-            }
-        );
-    } else if(selectedVHead !== null){
+    if(selectedVHead !== null){
         transaction.inputs.push(selectedVHead);
         transaction.outputs.push(
             {
@@ -216,15 +183,7 @@ function receivePhase2(t, id){
         outputs: []
     };
 
-    if(selectedHead !== null){
-        transaction.inputs.push(selectedHead);
-        transaction.outputs.push(
-            {
-                receiver: selectedPublicKey,
-                amount: headBalance + amount
-            }
-        );
-    } else if(selectedVHead !== null){
+    if(selectedVHead !== null){
         transaction.inputs.push(selectedVHead);
         transaction.outputs.push(
             {

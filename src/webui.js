@@ -33,8 +33,7 @@ module.exports =
                     + '8T3hOF3Si4EDYv6oVqVg8jp1LG/D6kdZtdumAhrwWmSfpOKfmYqiDGbvHhOWskj+'
                     + 'ysH9hyj2n/EvxRBsFQJBAJYT9NPJ+bLdAeFe27C7qT165yxjkD/JqW1xQzDGtI9x'
                     + 'uwG7lXbt1Q380qJO0eT3Ey+da6iyJS6xpTuot8H4Bck='
-                    + '-----END RSA PRIVATE KEY-----',
-                head: null
+                    + '-----END RSA PRIVATE KEY-----'
             }
         );
         app.use(express.static('webui'));
@@ -69,8 +68,7 @@ module.exports =
         const key = new RSA({b: 1024});
         const user = {
             public: key.exportKey('public').replace(/\n/g, ''),
-            private: key.exportKey('private').replace(/\n/g, ''),
-            head: null
+            private: key.exportKey('private').replace(/\n/g, '')
         };
 
         this.users.set(name, user);
@@ -94,7 +92,6 @@ module.exports =
             {
                 publicKey: user.public,
                 privateKey: user.private,
-                head: user.head,
                 vhead: await this.chain.getVHead(user.public)
             }
         ));
