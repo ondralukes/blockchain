@@ -87,9 +87,6 @@ function login(name) {
                 selectedHead = body.head;
                 selectedVHead = body.vhead;
                 getBalances();
-            } else if(xhttp.status === 500){
-                const body = JSON.parse(xhttp.responseText);
-                error(body.message);
             }
         }
         updateState();
@@ -330,20 +327,17 @@ function request(url, data, callback) {
 }
 
 function updateState() {
-    updateSendButtonState();
-    updateReceiveButtonState();
+    if(selectedPublicKey === null){
+        document.getElementById('logged-in-zone').style.display = 'none';
+    } else {
+        document.getElementById('logged-in-zone').style.display = '';
+        updateSendButtonState();
+        updateReceiveButtonState();
+    }
 }
 
 function updateSendButtonState() {
     const sendButton = document.getElementById('send-btn');
-    if(selectedPublicKey === null){
-        sendButton.innerText = 'Please log in.';
-        sendButton.disabled = true;
-        sendButton.classList.remove('btn-outline-primary');
-        sendButton.classList.add('btn-outline-danger');
-        return;
-    }
-
     const amount = parseInt(
         document.getElementById('send-amount').value
     );
@@ -374,13 +368,6 @@ function updateSendButtonState() {
 
 function updateReceiveButtonState() {
     const receiveButton = document.getElementById('receive-btn');
-    if(selectedPublicKey === null){
-        receiveButton.innerText = 'Please log in.';
-        receiveButton.disabled = true;
-        receiveButton.classList.remove('btn-outline-primary');
-        receiveButton.classList.add('btn-outline-danger');
-        return;
-    }
 
     const id = document.getElementById('receive-id').value;
     if(!id.includes('@')){

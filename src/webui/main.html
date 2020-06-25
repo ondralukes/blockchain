@@ -20,80 +20,81 @@
             id="login-btn">
         Check
     </button>
+    <div id="logged-in-zone">
+        <div class="row align-items-center my-1">
+            <span class="col-4">Public key</span>
+            <input id="public-key" class="text col-8 form-control" placeholder="Public key" readonly>
+        </div>
+        <div class="row align-items-center my-1">
+            <span class="col-4">Private key</span>
+            <input id="private-key" class="text col-8 form-control" placeholder="Public key" readonly>
+        </div>
+        <div class="row align-items-center my-1">
+            <span class="col-4">Chain head</span>
+            <input id="head" class="text col-8 form-control" placeholder="Chain head" readonly>
+        </div>
+        <div class="row align-items-center my-1">
+            <span class="col-4">Validated chain head</span>
+            <input id="vhead" class="text col-8 form-control" placeholder="Validated chain head" readonly>
+        </div>
 
-    <div class="row align-items-center my-1">
-        <span class="col-4">Public key</span>
-        <input id="public-key" class="text col-8 form-control" placeholder="Public key" readonly>
-    </div>
-    <div class="row align-items-center my-1">
-        <span class="col-4">Private key</span>
-        <input id="private-key" class="text col-8 form-control" placeholder="Public key" readonly>
-    </div>
-    <div class="row align-items-center my-1">
-        <span class="col-4">Chain head</span>
-        <input id="head" class="text col-8 form-control" placeholder="Chain head" readonly>
-    </div>
-    <div class="row align-items-center my-1">
-        <span class="col-4">Validated chain head</span>
-        <input id="vhead" class="text col-8 form-control" placeholder="Validated chain head" readonly>
-    </div>
+        <h3 class="text-center">
+            Current balance:
+            <div id="balance" class="text-monospace">0</div>
+        </h3>
+        <h2 class="text-center">Send</h2>
+        <div class="row my-2">
+            <input
+                    id="receiver-name"
+                    class="form-control col-8"
+                    type="text"
+                    placeholder="Receiver's username">
+            <button
+                    id="get-receiver-key-btn"
+                    class="btn btn-outline-primary col-4"
+                    type="button">
+                Get public key
+            </button>
+        </div>
+        <div class="row my-2">
+            <input
+                    id="receiver-key"
+                    class="form-control col-12"
+                    type="text"
+                    placeholder="Receiver's public key">
+        </div>
+        <div class="row my-2">
+            <input
+                    id="send-amount"
+                    class="col-12 form-control"
+                    type="text"
+                    placeholder="Amount">
+        </div>
+        <div class="row my-2">
+            <button
+                    id="send-btn"
+                    type="button"
+                    class="btn btn-outline-danger col-12">
+                Send
+            </button>
+        </div>
 
-    <h3 class="text-center">
-        Current balance:
-        <div id="balance" class="text-monospace">100000</div>
-    </h3>
-    <h2 class="text-center">Send</h2>
-    <div class="row my-2">
-        <input
-                id="receiver-name"
-                class="form-control col-8"
-                type="text"
-                placeholder="Receiver's username">
-        <button
-                id="get-receiver-key-btn"
-                class="btn btn-outline-primary col-4"
-                type="button">
-            Get public key
-        </button>
-    </div>
-    <div class="row my-2">
-        <input
-                id="receiver-key"
-                class="form-control col-12"
-                type="text"
-                placeholder="Receiver's public key">
-    </div>
-    <div class="row my-2">
-        <input
-                id="send-amount"
-                class="col-12 form-control"
-                type="text"
-                placeholder="Amount">
-    </div>
-    <div class="row my-2">
-        <button
-                id="send-btn"
-                type="button"
-                class="btn btn-outline-danger col-12">
-            Send
-        </button>
-    </div>
-
-    <h2 class="text-center">Receive</h2>
-    <div class="row my-2">
-        <input
-                id="receive-id"
-                class="form-control"
-                type="text"
-                placeholder="Transaction ID">
-    </div>
-    <div class="row my-2">
-        <button
-                id="receive-btn"
-                type="button"
-                class="btn btn-outline-danger col-12">
-            Send
-        </button>
+        <h2 class="text-center">Receive</h2>
+        <div class="row my-2">
+            <input
+                    id="receive-id"
+                    class="form-control"
+                    type="text"
+                    placeholder="Transaction ID">
+        </div>
+        <div class="row my-2">
+            <button
+                    id="receive-btn"
+                    type="button"
+                    class="btn btn-outline-danger col-12">
+                Receive
+            </button>
+        </div>
     </div>
 
     <div class="center-overlay" id="confirmation">
@@ -101,11 +102,7 @@
         <div class="text-center">
             Do you want to add the following transaction to the blockchain?
         </div>
-        <div class="code" id="confirmation-json">
-            {
-            ff
-            }
-        </div>
+        <div class="code" id="confirmation-json"></div>
         <div class="text-danger text-center">
             This action cannot be undone.
         </div>
