@@ -97,8 +97,8 @@ module.exports =
     }
 
     getPublic(req, res){
-        let name;
-        if((name = this.getRequestName(req, res)) === null) return;
+        let name = this.getRequestName(req, res);
+        if(name === null) return;
 
         const user = this.users.get(name);
         res.setHeader('Content-Type', 'application/json');
