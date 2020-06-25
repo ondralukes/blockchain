@@ -43,4 +43,4 @@ users.set(
 );
 
 const net = new Network(conf);
-const chain = new Blockchain(users.get('master').public, net);
+new Blockchain(users.get('master').public, net);

@@ -132,7 +132,10 @@ function getReceiverKey() {
 }
 
 function send(){
-    const amount = parseInt(document.getElementById('send-amount').value);
+    const amount = parseInt(
+        document.getElementById('send-amount').value,
+        10
+    );
     const transaction = {
         owner: selectedPublicKey,
         inputs: [],
@@ -266,15 +269,6 @@ function checkWaiting(id){
     )
 }
 
-function getTransaction(id){
-    request(
-        'ui/get',
-        {
-            id: id
-        },
-        (xhttp) => {});
-}
-
 function request(url, data, callback) {
     const xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function () {
@@ -298,7 +292,8 @@ function updateState() {
 function updateSendButtonState() {
     const sendButton = document.getElementById('send-btn');
     const amount = parseInt(
-        document.getElementById('send-amount').value
+        document.getElementById('send-amount').value,
+        10
     );
     if(isNaN(amount) || amount <= 0){
         sendButton.innerText = 'Please enter a valid amount.';

@@ -1,20 +1,21 @@
-.center-overlay{
-    position: absolute;
-    top: 10%;
-    left: 50%;
-    transform: translate(-50%, 0);
-    background-color:rgba(255,255,255,.95);
-    min-width: 75%;
-    border: lightgray solid 3pt;
-    border-radius: 10pt;
-    padding: 20pt;
+.center-overlay {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translate(-50%, 0);
+  background-color: rgba(255, 255, 255, 0.95);
+  min-width: 75%;
+  border: lightgray solid 3pt;
+  border-radius: 10pt;
+  padding: 20pt;
 }
 
-.wrap-all{
-    word-break: break-all;
+.wrap-all {
+  word-break: break-all;
 }
+
 .code {
-    font-family: monospace;
-    margin: 30pt;
-    word-break: break-all;
+  font-family: monospace;
+  margin: 30pt;
+  word-break: break-all;
 }
