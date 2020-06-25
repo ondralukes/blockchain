@@ -10,6 +10,9 @@
     padding: 20pt;
 }
 
+.wrap-all{
+    word-break: break-all;
+}
 .code {
     font-family: monospace;
     margin: 30pt;

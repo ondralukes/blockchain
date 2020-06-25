@@ -159,7 +159,12 @@ module.exports =
             return;
         }
 
-        const trans = await this.chain.getTransaction(id);
+        const trans = await this.chain.getTransaction(id, true);
+        if(trans === null){
+            res.status(500);
+            res.end();
+            return;
+        }
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify(trans));
     }

@@ -1,5 +1,6 @@
 window.addEventListener('DOMContentLoaded', init);
 
+let selectedName = null;
 let selectedPublicKey = null;
 let selectedPrivateKey = null;
 let selectedVHead = null;
@@ -9,12 +10,16 @@ let vheadBalance = null;
 
 let preparedTransaction = null;
 
+let waitingTimer = null;
+let waitingTime = 0;
+
 function init() {
     document.getElementById('confirmation').style.display = 'none';
     document.getElementById('result-prompt').style.display = 'none';
+    document.getElementById('waiting-prompt').style.display = 'none';
 
     document.getElementById('login-btn')
-        .addEventListener('click', login);
+        .addEventListener('click', onClickLogin);
     document.getElementById('get-receiver-key-btn')
         .addEventListener('click', getReceiverKey);
     document.getElementById('send-btn')
@@ -36,9 +41,18 @@ function init() {
     updateState();
 }
 
-function login() {
+function onClickLogin(){
+    login(document.getElementById('name-input').value);
+}
+
+function relogin() {
+    login(selectedName);
+}
+
+function login(name) {
+    selectedName = name;
     const data = {
-        name: document.getElementById('name-input').value
+        name: name
     };
     request('ui/login', data, (xhttp) => {
 
@@ -255,13 +269,45 @@ function confirmTransaction(){
         },
         (xhttp) => {
             if(xhttp.status === 200){
-                document.getElementById('result-tid')
-                    .innerText = JSON.parse(xhttp.responseText).id;
-                document.getElementById('result-prompt').style.display = '';
+                startWaiting(JSON.parse(xhttp.responseText).id);
             }
         }
     );
     closeConfirmation();
+}
+
+function startWaiting(id){
+    waitingTime = 0;
+    document.getElementById('waiting-timer')
+        .innerText = '0';
+    waitingTimer = setInterval(() => {
+        waitingTime++;
+        document.getElementById('waiting-timer')
+            .innerText = waitingTime;
+        checkWaiting(id);
+    }, 1000);
+    document.getElementById('wait-tid')
+        .innerText = id;
+    document.getElementById('waiting-prompt').style.display = '';
+
+}
+
+function checkWaiting(id){
+    request(
+        'ui/get',
+        {
+            id: id
+        },
+        (xhttp) => {
+            if(xhttp.status === 200){
+                clearInterval(waitingTimer);
+                document.getElementById('waiting-prompt').style.display = 'none';
+                document.getElementById('result-tid').innerText = id;
+                document.getElementById('result-prompt').style.display = '';
+                relogin();
+            }
+        }
+    )
 }
 
 function getTransaction(id){
