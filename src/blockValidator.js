@@ -92,7 +92,10 @@ async function validateTransaction(trans, block){
         return;
       }
     }
-    const output = t.outputs.find(x => x.receiver === trans.owner);
+    const output = t.outputs.find(
+        x =>
+        x.receiver === trans.owner
+    );
     if(typeof output === 'undefined'){
       log('[Validator] ===========Input does not match any output.');
     } else {

@@ -4,6 +4,8 @@ let selectedPublicKey = null;
 let selectedPrivateKey = null;
 let selectedVHead = null;
 let selectedHead = null;
+let headBalance = null;
+let vheadBalance = null;
 
 let preparedTransaction = null;
 
@@ -20,6 +22,7 @@ function init() {
 
     document.getElementById('receiver-key').addEventListener('input', updateState);
     document.getElementById('send-amount').addEventListener('input',updateState);
+    document.getElementById('receive-id').addEventListener('input',updateState);
 
     document.getElementById('confirmation-no')
         .addEventListener('click', closeConfirmation);
@@ -67,6 +70,7 @@ function login() {
                 selectedPrivateKey = body.privateKey;
                 selectedHead = body.head;
                 selectedVHead = body.vhead;
+                getBalances();
             } else if(xhttp.status === 500){
                 const body = JSON.parse(xhttp.responseText);
                 error(body.message);
@@ -74,6 +78,49 @@ function login() {
         }
         updateState();
     });
+}
+
+function getBalances(){
+    headBalance = 0;
+    vheadBalance = 0;
+    if(selectedVHead !== null){
+        request(
+            'ui/get',
+            {
+                id: selectedVHead
+            },
+            (xhttp) => {
+                if(xhttp.status === 200){
+                    const t = JSON.parse(xhttp.responseText);
+                    vheadBalance = getInputFromTransaction(t, selectedPublicKey);
+                }
+            }
+        )
+    }
+    if(selectedHead !== null){
+        request(
+            'ui/get',
+            {
+                id: selectedHead
+            },
+            (xhttp) => {
+                if(xhttp.status === 200){
+                    const t = JSON.parse(xhttp.responseText);
+                    headBalance = getInputFromTransaction(t, selectedPublicKey);
+                }
+            }
+        )
+    }
+}
+
+function getInputFromTransaction(trans, publicKey){
+    const output = trans.outputs.find(x => {
+        console.log(`${x.receiver} == ${publicKey}`);
+        return x.receiver === publicKey;
+    }
+    );
+    if(typeof output === 'undefined') return 0;
+    return output.amount;
 }
 
 function getReceiverKey() {
@@ -108,10 +155,82 @@ function send(){
 
     if(selectedHead !== null){
         transaction.inputs.push(selectedHead);
+        transaction.outputs.push(
+            {
+                receiver: selectedPublicKey,
+                amount: headBalance - amount
+            }
+        );
     } else if(selectedVHead !== null){
         transaction.inputs.push(selectedVHead);
+        transaction.outputs.push(
+            {
+                receiver: selectedPublicKey,
+                amount: vheadBalance - amount
+            }
+        );
     }
 
+    hashAndSignTransaction(transaction);
+    preparedTransaction = transaction;
+    showConfirmation();
+}
+
+function receive(){
+    const tId = document.getElementById('receive-id').value;
+    request(
+        'ui/get',
+        {
+            id: tId
+        },
+        (xhttp) => {
+            if(xhttp.status === 200){
+                const t = JSON.parse(xhttp.responseText);
+                receivePhase2(t, tId);
+            }
+        }
+    );
+}
+
+function receivePhase2(t, id){
+    const amount = getInputFromTransaction(t, selectedPublicKey);
+    const transaction = {
+        owner: selectedPublicKey,
+        inputs: [id],
+        outputs: []
+    };
+
+    if(selectedHead !== null){
+        transaction.inputs.push(selectedHead);
+        transaction.outputs.push(
+            {
+                receiver: selectedPublicKey,
+                amount: headBalance + amount
+            }
+        );
+    } else if(selectedVHead !== null){
+        transaction.inputs.push(selectedVHead);
+        transaction.outputs.push(
+            {
+                receiver: selectedPublicKey,
+                amount: vheadBalance + amount
+            }
+        );
+    } else {
+        transaction.outputs.push(
+            {
+                receiver: selectedPublicKey,
+                amount: amount
+            }
+        );
+    }
+
+    hashAndSignTransaction(transaction);
+    preparedTransaction = transaction;
+    showConfirmation();
+}
+
+function hashAndSignTransaction(transaction){
     transaction.hash = objectHash(transaction);
 
     const key = new NodeRSA(selectedPrivateKey);
@@ -121,9 +240,6 @@ function send(){
         'base64',
         'utf8'
     );
-
-    preparedTransaction = transaction;
-    showConfirmation();
 }
 
 function confirmTransaction(){
@@ -143,6 +259,15 @@ function confirmTransaction(){
     closeConfirmation();
 }
 
+function getTransaction(id){
+    request(
+        'ui/get',
+        {
+            id: id
+        },
+        (xhttp) => {});
+}
+
 function request(url, data, callback) {
     const xhttp = new XMLHttpRequest();
     xhttp.onreadystatechange = function () {
@@ -154,6 +279,11 @@ function request(url, data, callback) {
 }
 
 function updateState() {
+    updateSendButtonState();
+    updateReceiveButtonState();
+}
+
+function updateSendButtonState() {
     const sendButton = document.getElementById('send-btn');
     if(selectedPublicKey === null){
         sendButton.innerText = 'Please log in.';
@@ -189,6 +319,31 @@ function updateState() {
     sendButton.disabled = false;
     sendButton.classList.add('btn-outline-primary');
     sendButton.classList.remove('btn-outline-danger');
+}
+
+function updateReceiveButtonState() {
+    const receiveButton = document.getElementById('receive-btn');
+    if(selectedPublicKey === null){
+        receiveButton.innerText = 'Please log in.';
+        receiveButton.disabled = true;
+        receiveButton.classList.remove('btn-outline-primary');
+        receiveButton.classList.add('btn-outline-danger');
+        return;
+    }
+
+    const id = document.getElementById('receive-id').value;
+    if(!id.includes('@')){
+        receiveButton.innerText = 'Please enter a valid transaction ID.';
+        receiveButton.disabled = true;
+        receiveButton.classList.remove('btn-outline-primary');
+        receiveButton.classList.add('btn-outline-danger');
+        return;
+    }
+
+    receiveButton.innerText = 'Receive';
+    receiveButton.disabled = false;
+    receiveButton.classList.add('btn-outline-primary');
+    receiveButton.classList.remove('btn-outline-danger');
 }
 
 function closeConfirmation() {

@@ -44,6 +44,7 @@ module.exports =
         app.post('/ui/login', (req, res) => _this.login(req, res));
         app.post('/ui/getPublic', (req, res) => _this.getPublic(req, res));
         app.post('/ui/send', (req, res) => _this.send(req, res));
+        app.post('/ui/get', (req, res) => _this.get(req, res));
     }
 
     register(req, res){
@@ -67,11 +68,11 @@ module.exports =
         }
         const key = new RSA({b: 1024});
         const user = {
-            public: key.exportKey('public'),
-            private: key.exportKey('private'),
+            public: key.exportKey('public').replace(/\n/g, ''),
+            private: key.exportKey('private').replace(/\n/g, ''),
             head: null
         };
-
+        
         this.users.set(name, user);
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify(
@@ -84,7 +85,6 @@ module.exports =
     async login(req, res){
         let name;
         if((name = this.getRequestName(req, res)) === null) return;
-
         const user = this.users.get(name);
         res.setHeader('Content-Type', 'application/json');
 
@@ -148,6 +148,19 @@ module.exports =
             return null;
         }
         return name;
+    }
+
+    async get(req, res){
+        const id = req.body.id;
+        if(typeof id === 'undefined'){
+            res.status(400);
+            res.end();
+            return;
+        }
+
+        const trans = await this.chain.getTransaction(id);
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(trans));
     }
 }
 
