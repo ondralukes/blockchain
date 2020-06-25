@@ -19,5 +19,6 @@
     }
   ],
   "port": 8080,
-  "enableInput": false
+  "enableInput": false,
+  "webUI": false
 }
