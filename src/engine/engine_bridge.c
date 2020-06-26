@@ -1,9 +1,5 @@
 #include "engine_bridge.h"
 
-#define NAPI_ERR_CHECK \
-if(status != napi_ok) \
-  napi_throw_error(env, NULL, "Engine error."); \
-
 #define NAPI_CALL(env, call)                                      \
   do {                                                            \
     napi_status status = (call);                                  \
@@ -23,49 +19,70 @@ if(status != napi_ok) \
   } while(0)
 
 static napi_value
-b_multiply(napi_env env, napi_callback_info info){
-  napi_status status;
-
-  napi_value argv[2];
-  size_t argc = 2;
-  status = napi_get_cb_info(
-    env,
-    info,
-    &argc,
-    argv,
-    NULL,
-    NULL
-  );
-
-  NAPI_ERR_CHECK
-
-  int a, b;
-
-  status = napi_get_value_int32(env, argv[0], &a);
-  NAPI_ERR_CHECK
-
-  status = napi_get_value_int32(env, argv[1], &b);
-  NAPI_ERR_CHECK
-
-  int output = multiply(a, b);
+b_start(napi_env env, napi_callback_info info){
+  int output = start();
 
   napi_value result;
-  status = napi_create_int32(env, output, &result);
+  NAPI_CALL(env, napi_create_int32(env, output, &result));
+
   return result;
 }
 
-napi_value create_addon(napi_env env){
-  napi_value res;
-  NAPI_CALL(env, napi_create_object(env, &res));
+static napi_value
+b_stop(napi_env env, napi_callback_info info){
+  int output = stop();
+
+  napi_value result;
+  NAPI_CALL(env, napi_create_int32(env, output, &result));
+
+  return result;
+}
+
+static napi_value
+b_enqueue(napi_env env, napi_callback_info info){
+  napi_value argv[1];
+  size_t argc = 1;
+
+  NAPI_CALL(
+    env,
+    napi_get_cb_info(
+      env,
+      info,
+      &argc,
+      argv,
+      NULL,
+      NULL
+    )
+  );
+
+
+  int val;
+
+  NAPI_CALL(
+    env,
+    napi_get_value_int32(env, argv[0], &val)
+  );
+  enqueue(val);
+
+  return NULL;
+}
+
+void*
+add_function(
+  napi_env env,
+  napi_value obj,
+  napi_value(*func)(napi_env, napi_callback_info),
+  const char * name
+){
 
   napi_value exported_func;
   NAPI_CALL(
     env,
     napi_create_function(
       env,
-      "multiply",
+      name,
       NAPI_AUTO_LENGTH,
-      b_multiply,
+      func,
       NULL,
       &exported_func
     )
@@ -75,10 +92,38 @@ napi_value create_addon(napi_env env){
     env,
     napi_set_named_property(
       env,
-      res,
-      "multiply",
+      obj,
+      name,
       exported_func
     )
+  );
+
+  return NULL;
+}
+
+napi_value create_addon(napi_env env){
+  napi_value res;
+  NAPI_CALL(env, napi_create_object(env, &res));
+
+  add_function(
+    env,
+    res,
+    b_start,
+    "start"
+  );
+
+  add_function(
+    env,
+    res,
+    b_stop,
+    "stop"
+  );
+
+  add_function(
+    env,
+    res,
+    b_enqueue,
+    "enqueue"
   );
 
   return res;
