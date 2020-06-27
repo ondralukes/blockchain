@@ -5,5 +5,7 @@
 #include <node_api.h>
 
 #include "engine.h"
+#include "object_utils.h"
+
 napi_value create_addon(napi_env env);
 #endif //BLOCKCHAIN_ENGINE_H

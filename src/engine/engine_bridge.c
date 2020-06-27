@@ -67,6 +67,72 @@ b_enqueue(napi_env env, napi_callback_info info){
   return NULL;
 }
 
+static napi_value
+b_obj(napi_env env, napi_callback_info info){
+  napi_value argv[1];
+  size_t argc = 1;
+
+  NAPI_CALL(
+    env,
+    napi_get_cb_info(
+      env,
+      info,
+      &argc,
+      argv,
+      NULL,
+      NULL
+    )
+  );
+
+  napi_value object = argv[0];
+
+  int64_t x =
+  napiToInt(
+    env,
+      getProperty(
+      env,
+      object,
+      "int"
+    )
+  );
+
+  char* str =
+  napiToString(
+    env,
+      getProperty(
+      env,
+      object,
+      "str"
+    )
+  );
+
+  napi_value array = getProperty(env, object, "arr");
+  uint32_t arrayLength =
+  getArrayLength(
+    env,
+    array
+  );
+
+  printf("OBJ int = %ld\n", x);
+  printf("OBJ str = %s\n", str);
+
+  printf("OBJ array len = %u\n", arrayLength);
+  for(uint32_t i = 0;i<arrayLength;i++){
+    napi_value element = getArrayElement(
+      env,
+      array,
+      i
+    );
+
+    char * elementStr = napiToString(env, element);
+    printf("OBJ arr[%u] = %s\n", i, elementStr);
+    free(elementStr);
+  }
+
+  free(str);
+  return NULL;
+}
+
 void*
 add_function(
   napi_env env,
@@ -124,6 +190,13 @@ napi_value create_addon(napi_env env){
     res,
     b_enqueue,
     "enqueue"
+  );
+
+  add_function(
+    env,
+    res,
+    b_obj,
+    "obj"
   );
 
   return res;

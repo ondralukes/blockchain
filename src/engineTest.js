@@ -4,6 +4,15 @@ console.log('Starting engine')
 console.log(`Started engine (${engine.start()})`);
 console.log('Stopping in 3 seconds');
 
+engine.obj({
+    int: 42,
+    str: 'test',
+    arr: [
+        'str1',
+        'str2',
+        'str3'
+    ]
+});
 let i = 0;
 const enqueueInterval = setInterval(
     ()=> {
