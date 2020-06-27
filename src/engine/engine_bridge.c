@@ -86,50 +86,7 @@ b_obj(napi_env env, napi_callback_info info){
 
   napi_value object = argv[0];
 
-  int64_t x =
-  napiToInt(
-    env,
-      getProperty(
-      env,
-      object,
-      "int"
-    )
-  );
-
-  char* str =
-  napiToString(
-    env,
-      getProperty(
-      env,
-      object,
-      "str"
-    )
-  );
-
-  napi_value array = getProperty(env, object, "arr");
-  uint32_t arrayLength =
-  getArrayLength(
-    env,
-    array
-  );
-
-  printf("OBJ int = %ld\n", x);
-  printf("OBJ str = %s\n", str);
-
-  printf("OBJ array len = %u\n", arrayLength);
-  for(uint32_t i = 0;i<arrayLength;i++){
-    napi_value element = getArrayElement(
-      env,
-      array,
-      i
-    );
-
-    char * elementStr = napiToString(env, element);
-    printf("OBJ arr[%u] = %s\n", i, elementStr);
-    free(elementStr);
-  }
-
-  free(str);
+  trn_t * trn = obj_to_trn(env, object);
   return NULL;
 }
 

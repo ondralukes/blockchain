@@ -5,12 +5,28 @@ console.log(`Started engine (${engine.start()})`);
 console.log('Stopping in 3 seconds');
 
 engine.obj({
-    int: 42,
-    str: 'test',
-    arr: [
-        'str1',
-        'str2',
-        'str3'
+    "owner": "test owner",
+    "inputs": [
+        "test input1",
+        "test input2"
+    ],
+    "outputs": [
+        {
+            "amount": 123,
+            "receiver": "test receiver1"
+        },
+        {
+            "amount": 123,
+            "receiver": "test receiver2"
+        },
+        {
+            "amount": 123,
+            "receiver": "test receiver3"
+        },
+        {
+            "amount": 123,
+            "receiver": "test receiver4"
+        },
     ]
 });
 let i = 0;
