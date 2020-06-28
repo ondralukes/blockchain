@@ -55,14 +55,7 @@ b_enqueue(napi_env env, napi_callback_info info){
     )
   );
 
-
-  int val;
-
-  NAPI_CALL(
-    env,
-    napi_get_value_int32(env, argv[0], &val)
-  );
-  enqueue(val);
+  enqueue(env, argv[0]);
 
   return NULL;
 }

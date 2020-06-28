@@ -1,10 +1,12 @@
 #ifndef QUEUE_H
 #define QUEUE_H
 
+#include <js_native_api.h>
+#include <node_api.h>
 #include <stdlib.h>
 
 struct queue_node {
-  int value;
+  void* value;
   struct queue_node* next;
 };
 
@@ -17,7 +19,6 @@ typedef struct {
 queue_t * create_queue();
 void destroy_queue();
 
-void queue_enqueue(queue_t * q, int val);
-int queue_dequeue(queue_t * q);
-
+void queue_enqueue(queue_t * q, void* val);
+void* queue_dequeue(queue_t * q);
 #endif

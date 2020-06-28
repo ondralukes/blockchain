@@ -15,7 +15,7 @@ void destroy_queue(queue_t*q){
   free(q);
 }
 
-void queue_enqueue(queue_t * q, int val){
+void queue_enqueue(queue_t * q, void* val){
   struct queue_node * qn = malloc(sizeof(struct queue_node));
   qn->value = val;
   if(q->ep == NULL){
@@ -32,7 +32,7 @@ void queue_enqueue(queue_t * q, int val){
 }
 
 
-int queue_dequeue(queue_t * q){
+void* queue_dequeue(queue_t * q){
   struct queue_node * qn = q->dp;
 
   if(q->dp->next == NULL){
@@ -42,7 +42,7 @@ int queue_dequeue(queue_t * q){
     q->dp = q->dp->next;
   }
 
-  int val = qn->value;
+  void* val = qn->value;
   free(qn);
 
   q->size--;

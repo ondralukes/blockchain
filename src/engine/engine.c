@@ -15,8 +15,16 @@ void* engine_loop(void* args){
     }
     printf("[Engine] %d requests pending\n", queue->size);
     if(queue->size != 0){
-      int val = queue_dequeue(queue);
-      printf("[Engine] Dequeued %d\n", val);
+      req_t * req = queue_dequeue(queue);
+      if(req->type == REQ_ENQUEUE){
+        printf("[Engine] Dequeued 'enqueue' request.\n");
+        struct enqueue_request* requestData = req->data.enqueue;
+        trn_t * trn = requestData->trn;
+        printf("[Engine] [Enqueue] hash = %s\n", trn->hash);
+        destroy_trn(trn);
+        free(requestData);
+      }
+      free(req);
     }
     if(pthread_mutex_unlock(&mutex) != 0){
       printf("[Engine] Mutex unlock error\n");
@@ -50,12 +58,41 @@ int stop(){
   return pthread_mutex_destroy(&mutex);
 }
 
-void enqueue(int val){
+void enqueue(napi_env env, napi_value request){
   if(pthread_mutex_lock(&mutex) != 0){
-    printf("[Engine] Mutex lock error\n");
+    printf("[Engine API] Mutex lock error\n");
   }
-  queue_enqueue(queue, val);
+
+  char * requestType = napiToString(
+    env,
+    getProperty(
+      env,
+      request,
+      "type"
+    )
+  );
+
+  req_t* req = malloc(sizeof(req_t));
+  if(strcmp(requestType, "enqueue") == 0){
+    req->type = REQ_ENQUEUE;
+    req->data.enqueue = malloc(sizeof(struct enqueue_request));
+    req->data.enqueue->trn = obj_to_trn(
+      env,
+      getProperty(
+        env,
+        request,
+        "transaction"
+      )
+    );
+
+    printf("[Engine API] Enqueueing 'enqueue' request.\n");
+    queue_enqueue(queue, req);
+  } else {
+    printf("[Engine API] Unknown request type.\n");
+  }
+
+  free(requestType);
   if(pthread_mutex_unlock(&mutex) != 0){
-    printf("[Engine] Mutex unlock error\n");
+    printf("[Engine API] Mutex unlock error\n");
   }
 }

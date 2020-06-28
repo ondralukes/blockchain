@@ -1,11 +1,18 @@
 #include "transaction.h"
 
 trn_t * obj_to_trn(napi_env env, napi_value obj){
-  printf("[Engine] [TRN Parse] BEGIN\n");
   trn_t * t = malloc(sizeof(trn_t));
   t->owner = napiToString(
     env,
     getProperty(env, obj, "owner")
+  );
+  t->hash = napiToString(
+    env,
+    getProperty(env, obj, "hash")
+  );
+  t->signature = napiToString(
+    env,
+    getProperty(env, obj, "signature")
   );
 
   napi_value inputs = getProperty(env, obj, "inputs");
@@ -54,22 +61,22 @@ trn_t * obj_to_trn(napi_env env, napi_value obj){
     );
   }
 
-  printf("[Engine] [TRN Parse] owner=%s\n",t->owner);
-  printf("[Engine] [TRN Parse] inputs (%d):\n",t->inputCount);
-  for(uint32_t i = 0;i<t->inputCount;i++){
-    printf("[Engine] [TRN Parse] inputs[%d] = %s\n", i, t->inputs[i]);
+  return t;
+}
+
+void destroy_trn(trn_t* t){
+  free(t->owner);
+  free(t->hash);
+  free(t->signature);
+
+  for(uint32_t i = 0;i < t->inputCount;i++){
+    free(t->inputs[i]);
   }
-  printf("[Engine] [TRN Parse] outputs (%d):\n",t->outputCount);
-  for(uint32_t i = 0;i<t->outputCount;i++){
-    printf("[Engine] [TRN Parse] outputs[%d]\n", i);
-    printf(
-      "                                .receiver = %s\n",
-      t->outputs[i].receiver
-    );
-    printf(
-      "                                .amount = %ld\n",
-      t->outputs[i].amount
-    );
+  free(t->inputs);
+
+  for(uint32_t i = 0;i < t->outputCount;i++){
+    free(t->outputs[i].receiver);
   }
-  printf("[Engine] [TRN Parse] END\n");
+  free(t->outputs);
+  free(t);
 }

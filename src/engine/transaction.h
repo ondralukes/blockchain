@@ -21,7 +21,11 @@ typedef struct {
 
   uint32_t outputCount;
   trn_output_t* outputs;
+
+  char* hash;
+  char* signature;
 } trn_t;
 
 trn_t * obj_to_trn(napi_env env, napi_value obj);
+void destroy_trn(trn_t* t);
 #endif
