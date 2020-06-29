@@ -7,7 +7,8 @@
         'engine.c',
         'queue.c',
         'object_utils.c',
-        'transaction.c'
+        'transaction.c',
+        'block.c'
         ]
     }
   ]

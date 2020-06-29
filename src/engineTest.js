@@ -25,14 +25,14 @@ const enqueueInterval = setInterval(
             }
         });
     },
-    100
+    1000
 );
 
-setTimeout(
-    () => {
-        clearInterval(enqueueInterval);
-        console.log('Stopping engine');
-        console.log(`Engine stopped (${engine.stop()})`);
-    },
-    3000
-);
+// setTimeout(
+//     () => {
+//         clearInterval(enqueueInterval);
+//         console.log('Stopping engine');
+//         console.log(`Engine stopped (${engine.stop()})`);
+//     },
+//     3000
+// );

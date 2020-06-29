@@ -5,7 +5,7 @@
 
 #define REQ_ENQUEUE 1
 struct enqueue_request {
-  trn_t* trn
+  trn_t* trn;
 };
 
 typedef struct {

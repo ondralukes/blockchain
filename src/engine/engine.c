@@ -1,66 +1,163 @@
 #include "engine.h"
 
-pthread_t thread;
+pthread_t composerThread;
+pthread_t validatorThread;
 bool shouldStop = false;
 
-pthread_mutex_t mutex;
+pthread_mutex_t requestQueueMutex;
 queue_t* queue;
 
-void* engine_loop(void* args){
+queue_t* pendingTransactions;
+
+pthread_mutex_t pendingBlocksMutex;
+queue_t* pendingBlocks;
+
+uint64_t nextBlockTime;
+
+void* composer_loop(void* args){
   queue = create_queue();
+  pendingTransactions = create_queue();
   while(1){
-    if(pthread_mutex_lock(&mutex) != 0){
-      printf("[Engine] Mutex lock error\n");
+    clock_t start = clock();
+    if(pthread_mutex_lock(&requestQueueMutex) != 0){
+      printf("[Engine/Composer] Mutex lock error\n");
       break;
     }
-    printf("[Engine] %d requests pending\n", queue->size);
     if(queue->size != 0){
+      printf("[Engine/Composer] %d requests pending\n", queue->size);
       req_t * req = queue_dequeue(queue);
       if(req->type == REQ_ENQUEUE){
-        printf("[Engine] Dequeued 'enqueue' request.\n");
+        printf("[Engine/Composer] Dequeued 'enqueue' request.\n");
         struct enqueue_request* requestData = req->data.enqueue;
         trn_t * trn = requestData->trn;
-        printf("[Engine] [Enqueue] hash = %s\n", trn->hash);
-        destroy_trn(trn);
+        printf("[Engine/Composer] [Enqueue] hash = %s\n", trn->hash);
+        queue_enqueue(pendingTransactions, trn);
         free(requestData);
       }
       free(req);
     }
-    if(pthread_mutex_unlock(&mutex) != 0){
-      printf("[Engine] Mutex unlock error\n");
+    if(pthread_mutex_unlock(&requestQueueMutex) != 0){
+      printf("[Engine/Composer] Mutex unlock error\n");
       break;
     }
+
+    clock_t end = clock();
+    printf("[Engine/Composer] Total time = %ld us\n", (end - start)/(CLOCKS_PER_SEC/1000000));
+
+    if(time(NULL) >= nextBlockTime){
+      printf("[Engine/Composer] [Block finalize] New block\n");
+      printf("[Engine/Composer] [Block finalize] %d transactions.\n", pendingTransactions->size);
+
+      uint32_t trnCount = pendingTransactions->size;
+      block_t* block = create_block(trnCount);
+      for(uint32_t i = 0;i<trnCount;i++){
+        trn_t * trn = queue_dequeue(pendingTransactions);
+        printf("[Engine/Composer] [Block finalize] Transaction hash = %s\n", trn->hash);
+        block->trns[i] = trn;
+      }
+
+      if(pthread_mutex_lock(&pendingBlocksMutex) != 0){
+        printf("[Engine/Composer] Mutex lock error\n");
+        break;
+      }
+      queue_enqueue(pendingBlocks, block);
+      if(pthread_mutex_unlock(&pendingBlocksMutex) != 0){
+        printf("[Engine/Composer] Mutex unlock error\n");
+        break;
+      }
+      struct timeval time;
+      gettimeofday(&time, NULL);
+
+      uint64_t offset = (time.tv_sec - nextBlockTime)*1000000 + time.tv_usec;
+      printf("[Engine/Composer] [Block finalize] Finalized block with offset %ld us\n", offset);
+
+      nextBlockTime += 10;
+    }
     usleep(250000);
-    if(shouldStop) break;
+    if(shouldStop){
+      printf("[Engine/Composer] Stopping.");
+      break;
+    }
   }
   destroy_queue(queue);
+  destroy_queue(pendingTransactions);
   return NULL;
+}
+
+void* validator_loop(void* args){
+  pendingBlocks = create_queue();
+  while(1){
+    if(pthread_mutex_lock(&pendingBlocksMutex) != 0){
+      printf("[Engine/Validator] Mutex lock error\n");
+      break;
+    }
+    if(pendingBlocks->size != 0){
+      printf("[Engine/Validator] %d blocks pending\n", pendingBlocks->size);
+      block_t * block = queue_dequeue(pendingBlocks);
+      if(pthread_mutex_unlock(&pendingBlocksMutex) != 0){
+        printf("[Engine/Validator] Mutex unlock error\n");
+        break;
+      }
+
+      printf("[Engine/Validator] Block contains %d transactions.\n", block->trnCount);
+
+      //TODO: Validate, save and free from memory
+    } else {
+      if(pthread_mutex_unlock(&pendingBlocksMutex) != 0){
+        printf("[Engine/Validator] Mutex unlock error\n");
+        break;
+      }
+    }
+
+    usleep(25000);
+    if(shouldStop){
+      printf("[Engine/Validator] Stopping.");
+      break;
+    }
+  }
+  destroy_queue(pendingBlocks);
 }
 
 int start(){
   shouldStop = false;
+  nextBlockTime = (time(NULL) / 10)*10 + 10;
 
-  if(pthread_mutex_init(&mutex, NULL) != 0){
+  if(pthread_mutex_init(&requestQueueMutex, NULL) != 0){
     return -1;
   }
 
-  return pthread_create(
-    &thread,
+  if(pthread_mutex_init(&pendingBlocksMutex, NULL) != 0){
+    return -1;
+  }
+
+  int rc = pthread_create(
+    &composerThread,
     NULL,
-    engine_loop,
+    composer_loop,
+    NULL
+  );
+
+  if(rc != 0) return rc;
+
+  return pthread_create(
+    &validatorThread,
+    NULL,
+    validator_loop,
     NULL
   );
 }
 
 int stop(){
   shouldStop = true;
-  if(pthread_join(thread, NULL) != 0) return -1;
-  return pthread_mutex_destroy(&mutex);
+  if(pthread_join(composerThread, NULL) != 0) return -1;
+  if(pthread_join(validatorThread, NULL) != 0) return -1;
+  if(pthread_mutex_destroy(&requestQueueMutex) != 0) return -1;
+  return pthread_mutex_destroy(&pendingBlocksMutex);
 }
 
 void enqueue(napi_env env, napi_value request){
-  if(pthread_mutex_lock(&mutex) != 0){
-    printf("[Engine API] Mutex lock error\n");
+  if(pthread_mutex_lock(&requestQueueMutex) != 0){
+    printf("[Engine/API] Mutex lock error\n");
   }
 
   char * requestType = napiToString(
@@ -85,14 +182,14 @@ void enqueue(napi_env env, napi_value request){
       )
     );
 
-    printf("[Engine API] Enqueueing 'enqueue' request.\n");
+    printf("[Engine/API] Enqueueing 'enqueue' request.\n");
     queue_enqueue(queue, req);
   } else {
-    printf("[Engine API] Unknown request type.\n");
+    printf("[Engine/API] Unknown request type.\n");
   }
 
   free(requestType);
-  if(pthread_mutex_unlock(&mutex) != 0){
-    printf("[Engine API] Mutex unlock error\n");
+  if(pthread_mutex_unlock(&requestQueueMutex) != 0){
+    printf("[Engine/API] Mutex unlock error\n");
   }
 }
