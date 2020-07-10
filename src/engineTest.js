@@ -2,7 +2,6 @@ const engine = require('./engine/build/Release/engine');
 
 console.log('Starting engine')
 console.log(`Started engine (${engine.start()})`);
-console.log('Stopping in 3 seconds');
 
 const enqueueInterval = setInterval(
     ()=> {
@@ -27,12 +26,3 @@ const enqueueInterval = setInterval(
     },
     1000
 );
-
-// setTimeout(
-//     () => {
-//         clearInterval(enqueueInterval);
-//         console.log('Stopping engine');
-//         console.log(`Engine stopped (${engine.stop()})`);
-//     },
-//     3000
-// );

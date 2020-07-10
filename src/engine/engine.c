@@ -50,6 +50,7 @@ void* composer_loop(void* args){
 
       uint32_t trnCount = pendingTransactions->size;
       block_t* block = create_block(trnCount);
+      block->timestamp = nextBlockTime;
       for(uint32_t i = 0;i<trnCount;i++){
         trn_t * trn = queue_dequeue(pendingTransactions);
         printf("[Engine/Composer] [Block finalize] Transaction hash = %s\n", trn->hash);
@@ -100,8 +101,8 @@ void* validator_loop(void* args){
       }
 
       printf("[Engine/Validator] Block contains %d transactions.\n", block->trnCount);
-
-      //TODO: Validate, save and free from memory
+      printf("[Engine/Validator] WARNING: Engine validator is not implemented! Assuming valid.\n");
+      save(block);
     } else {
       if(pthread_mutex_unlock(&pendingBlocksMutex) != 0){
         printf("[Engine/Validator] Mutex unlock error\n");

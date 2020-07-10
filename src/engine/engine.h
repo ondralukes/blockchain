@@ -18,6 +18,7 @@
 #include "object_utils.h"
 #include "request.h"
 #include "block.h"
+#include "storage.h"
 
 int start();
 

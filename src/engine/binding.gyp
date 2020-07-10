@@ -8,7 +8,8 @@
         'queue.c',
         'object_utils.c',
         'transaction.c',
-        'block.c'
+        'block.c',
+        'storage.c'
         ]
     }
   ]
