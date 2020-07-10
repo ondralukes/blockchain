@@ -102,7 +102,10 @@ void* validator_loop(void* args){
 
       printf("[Engine/Validator] Block contains %d transactions.\n", block->trnCount);
       printf("[Engine/Validator] WARNING: Engine validator is not implemented! Assuming valid.\n");
-      save(block);
+      while(!save(block)){
+        printf("[Engine/Validator] Saving block...\n");
+      }
+
     } else {
       if(pthread_mutex_unlock(&pendingBlocksMutex) != 0){
         printf("[Engine/Validator] Mutex unlock error\n");
