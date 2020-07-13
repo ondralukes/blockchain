@@ -80,3 +80,13 @@ void destroy_trn(trn_t* t){
   free(t->outputs);
   free(t);
 }
+
+void print_trn(trn_t* t){
+  printf("[Engine/Print/Transaction] Transaction %s\n", t->hash);
+  printf("[Engine/Print/Transaction] owner: %s\n", t->owner);
+  printf("[Engine/Print/Transaction] signature: %s\n", t->signature);
+  printf("[Engine/Print/Transaction] inputs (%d):\n", t->inputCount);
+  for(uint32_t i = 0;i<t->inputCount;i++){
+    printf("[Engine/Print/Transaction] %s\n", t->inputs[i]);
+  }
+}

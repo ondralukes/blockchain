@@ -106,3 +106,101 @@ bool writeOutput(FILE * fp, trn_output_t * output){
 
   return true;
 }
+
+block_t * load(uint64_t t){
+  uint64_t timestamp = t;
+  uint64_t year = 1970 + timestamp/31556926;
+  timestamp %= 31556926;
+  uint64_t day = timestamp/86400;
+  timestamp %= 86400;
+  uint64_t bl = timestamp/10;
+
+  char* filename = malloc(1024);
+
+  sprintf(filename, "data/%ld/%ld/%ld", year, day, bl);
+
+  printf("[Engine/Storage] Loading block from %s\n", filename);
+
+  FILE * fp = fopen(filename, "r");
+
+  if(fp == NULL){
+    printf("[Engine/Storage] Failed to open file.\n");
+    return NULL;
+  }
+
+  if(fread(&timestamp, sizeof(uint64_t), 1, fp) != 1){
+    printf("[Engine/Storage] Failed to read from file.\n");
+    fclose(fp);
+    return NULL;
+  }
+
+  if(t != timestamp){
+    printf("[Engine/Storage] Timestamps does not match. (%ld != %ld)\n", t, timestamp);
+    fclose(fp);
+    return NULL;
+  }
+
+  uint32_t trnCount;
+  if(fread(&trnCount, sizeof(uint32_t), 1, fp) != 1){
+    printf("[Engine/Storage] Failed to read from file.\n");
+    fclose(fp);
+    return NULL;
+  }
+
+  block_t * block = create_block(trnCount);
+  block->timestamp = timestamp;
+
+  for(uint32_t i =0;i<trnCount;i++){
+    block->trns[i] = readTrn(fp);
+  }
+
+  return block;
+}
+
+trn_t * readTrn(FILE * fp){
+  trn_t * res = malloc(sizeof(trn_t));
+  res->owner = readString(fp);
+  if(fread(&res->inputCount, sizeof(uint32_t), 1, fp) != 1){
+    printf("[Engine/Storage] Failed to read from file.\n");
+    fclose(fp);
+    return NULL;
+  }
+
+  res->inputs = malloc(res->inputCount * sizeof(char*));
+  for(uint32_t i = 0;i<res->inputCount;i++){
+    res->inputs[i] = readString(fp);
+  }
+
+  if(fread(&res->outputCount, sizeof(uint32_t), 1, fp) != 1){
+    printf("[Engine/Storage] Failed to read from file.\n");
+    fclose(fp);
+    return NULL;
+  }
+
+  res->outputs = malloc(res->outputCount * sizeof(trn_output_t));
+  for(uint32_t i =0;i<res->outputCount;i++){
+    readOutput(fp, &res->outputs[i]);
+  }
+
+  res->hash = readString(fp);
+  res->signature = readString(fp);
+  return res;
+}
+
+void readOutput(FILE* fp, trn_output_t* output){
+  output->receiver = readString(fp);
+  fread(&output->amount, sizeof(int64_t), 1, fp);
+}
+
+char * readString(FILE * fp){
+  int64_t start = ftell(fp);
+  size_t len = 1;
+  while(fgetc(fp) != '\0') len++;
+
+  fseek(fp, start, SEEK_SET);
+
+  char* res = malloc(len);
+  fread(res, len, 1, fp);
+  printf("[Engine/Storage] Read string %s\n", res);
+  return res;
+}

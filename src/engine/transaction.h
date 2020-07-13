@@ -28,4 +28,6 @@ typedef struct {
 
 trn_t * obj_to_trn(napi_env env, napi_value obj);
 void destroy_trn(trn_t* t);
+
+void print_trn(trn_t* t);
 #endif

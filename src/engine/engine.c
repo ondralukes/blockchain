@@ -105,6 +105,8 @@ void* validator_loop(void* args){
       while(!save(block)){
         printf("[Engine/Validator] Saving block...\n");
       }
+      block_t * b = load(block->timestamp);
+      print_block(b);
 
     } else {
       if(pthread_mutex_unlock(&pendingBlocksMutex) != 0){

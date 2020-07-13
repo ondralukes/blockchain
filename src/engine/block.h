@@ -13,4 +13,5 @@ typedef struct {
 } block_t;
 
 block_t * create_block(uint32_t trnCount);
+void print_block(block_t * b);
 #endif
