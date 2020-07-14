@@ -18,7 +18,6 @@ void* composer_loop(void* args){
   queue = create_queue();
   pendingTransactions = create_queue();
   while(1){
-    clock_t start = clock();
     if(pthread_mutex_lock(&requestQueueMutex) != 0){
       printf("[Engine/Composer] Mutex lock error\n");
       break;
@@ -40,9 +39,6 @@ void* composer_loop(void* args){
       printf("[Engine/Composer] Mutex unlock error\n");
       break;
     }
-
-    clock_t end = clock();
-    printf("[Engine/Composer] Total time = %ld us\n", (end - start)/(CLOCKS_PER_SEC/1000000));
 
     if(time(NULL) >= nextBlockTime){
       printf("[Engine/Composer] [Block finalize] New block\n");
@@ -105,9 +101,12 @@ void* validator_loop(void* args){
       while(!save(block)){
         printf("[Engine/Validator] Saving block...\n");
       }
+      updateHeadCache(block);
       block_t * b = load(block->timestamp);
       print_block(b);
 
+      free_block(b);
+      free_block(block);
     } else {
       if(pthread_mutex_unlock(&pendingBlocksMutex) != 0){
         printf("[Engine/Validator] Mutex unlock error\n");

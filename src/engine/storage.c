@@ -29,7 +29,7 @@ bool save(block_t * block){
   sprintf(filename, "data/%ld/%ld/%ld", year, day, bl);
 
   printf("[Engine/Storage] Storing block to %s\n", filename);
-  FILE * fp = fopen(filename, "w");
+  FILE * fp = fopen(filename, "w+b");
 
   if(fp == NULL){
     printf("[Engine/Storage] Failed to open file %s\n", filename);
@@ -57,7 +57,45 @@ bool save(block_t * block){
   }
 
   printf("[Engine/Storage] Wrote block: %ld bytes\n", ftell(fp));
+  fseek(fp, 0, SEEK_SET);
+
+  SHA512_CTX hashContext;
+  if(SHA512_Init(&hashContext) != 1){
+    printf("[Engine/Storage] OpenSSL sha512 error\n");
+    return false;
+  }
+
+  unsigned char * buf = malloc(2048);
+  size_t sz;
+  while((sz = fread(buf, 1, 2048, fp)) != 0){
+    if(SHA512_Update(&hashContext, buf, sz) != 1){
+      printf("[Engine/Storage] OpenSSL sha512 error\n");
+      return false;
+    }
+  }
+
+  unsigned char * hash = malloc(SHA512_DIGEST_LENGTH);
+
+  if(SHA512_Final(hash, &hashContext) != 1){
+    printf("[Engine/Storage] OpenSSL sha512 error\n");
+    return false;
+  }
+
+  char* hexhash = bytesToHex(hash, SHA512_DIGEST_LENGTH);
+  printf("[Engine/Storage] Block hash: %s\n", hexhash);
+  free(hexhash);
+
+  fseek(fp, 0, SEEK_END);
+
+  if(fwrite(hash, SHA512_DIGEST_LENGTH, 1, fp) != 1){
+    printf("[Engine/Storage] Failed to write to file %s\n", filename);
+    fclose(fp);
+    return false;
+  }
+
   fclose(fp);
+
+  block->hash = hash;
 
   free(filename);
 
@@ -121,7 +159,7 @@ block_t * load(uint64_t t){
 
   printf("[Engine/Storage] Loading block from %s\n", filename);
 
-  FILE * fp = fopen(filename, "r");
+  FILE * fp = fopen(filename, "rb");
 
   if(fp == NULL){
     printf("[Engine/Storage] Failed to open file.\n");
@@ -203,4 +241,34 @@ char * readString(FILE * fp){
   fread(res, len, 1, fp);
   printf("[Engine/Storage] Read string %s\n", res);
   return res;
+}
+
+void updateHeadCache(block_t * block){
+  unsigned char hash[SHA_DIGEST_LENGTH];
+  for(uint32_t i = 0;i<block->trnCount;i++){
+    char* owner = block->trns[i]->owner;
+    SHA1(owner, strlen(owner), hash);
+    char* hexhash = bytesToHex(hash, SHA_DIGEST_LENGTH);
+    printf("[Engine/Storage] Updated cache at %s\n", hexhash);
+
+    createDir("data/head_cache");
+
+    char * path = malloc(2048);
+    sprintf(path, "data/head_cache/%s", hexhash);
+
+    FILE * cacheFile = fopen(path, "w");
+
+    if(fwrite(block->trns[i]->hash, strlen(block->trns[i]->hash) + 1, 1, cacheFile) != 1){
+      printf("[Engine/Storage] Failed to write to file %s\n", path);
+    }
+
+    if(fwrite(&block->timestamp, sizeof(uint64_t), 1, cacheFile) != 1){
+      printf("[Engine/Storage] Failed to write to file %s\n", path);
+    }
+
+    fclose(cacheFile);
+
+    free(path);
+    free(hexhash);
+  }
 }
