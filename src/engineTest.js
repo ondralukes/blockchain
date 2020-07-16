@@ -23,6 +23,11 @@ const enqueueInterval = setInterval(
                 "signature": "test signature"
             }
         });
+        engine.enqueue({
+            type: 'getHead',
+            publicKey: 'test owner',
+            callback: (x) => console.log('Engine callback: ', x)
+        });
     },
     1000
 );

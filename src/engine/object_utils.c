@@ -125,3 +125,120 @@ char* napiToString(napi_env env, napi_value obj){
 
   return buf;
 }
+
+void toThreadsafeFunc(napi_env env, napi_value func, napi_threadsafe_function* res){
+  napi_value resource_name;
+  NAPI_CALL(
+    env,
+    napi_create_string_utf8(
+      env,
+      "engine",
+      NAPI_AUTO_LENGTH,
+      &resource_name
+    )
+  );
+
+  NAPI_CALL(
+    env,
+    napi_create_threadsafe_function(
+      env,  //env
+      func, //func
+      NULL, //async_resource
+      resource_name, //async_resource_name
+      0,    //max_queue_size
+      2,    //initial_thread_count
+      NULL, //thread_finalize_data
+      NULL, //thread_finalize_cb
+      NULL, //context
+      get_head_threadsafe_js_cb, //call_js_cb
+      res   //result
+    )
+  );
+}
+
+void callThreadsafe(napi_threadsafe_function func, trn_id_t* data){
+  napi_call_threadsafe_function(
+    func,
+    data,
+    napi_tsfn_blocking
+  );
+}
+
+
+void get_head_threadsafe_js_cb(
+  napi_env env,
+  napi_value js_callback,
+  void* context,
+  void* data
+){
+  trn_id_t* id = (trn_id_t *)data;
+
+  napi_value js_id;
+
+  if(id != NULL){
+    NAPI_CALL(
+      env,
+      napi_create_object(env, &js_id)
+    );
+
+    napi_value js_timestamp;
+    NAPI_CALL(
+      env,
+      napi_create_int64(
+        env,
+        id->timestamp,
+        &js_timestamp
+      )
+    );
+
+    napi_value js_hash;
+    NAPI_CALL(
+      env,
+      napi_create_string_utf8(
+        env,
+        id->hash,
+        NAPI_AUTO_LENGTH,
+        &js_hash
+      )
+    );
+
+    NAPI_CALL(
+      env,
+      napi_set_named_property(
+        env,
+        js_id,
+        "timestamp",
+        js_timestamp
+      )
+    );
+
+    NAPI_CALL(
+      env,
+      napi_set_named_property(
+        env,
+        js_id,
+        "hash",
+        js_hash
+      )
+    );
+  } else {
+    NAPI_CALL(
+      env,
+      napi_get_null(env, &js_id)
+    );
+  }
+
+  free(id);
+
+  NAPI_CALL(
+    env,
+    napi_call_function(
+      env,
+      js_callback,
+      js_callback,
+      1,
+      &js_id,
+      NULL
+    )
+  );
+}

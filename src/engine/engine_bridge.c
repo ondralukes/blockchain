@@ -60,29 +60,6 @@ b_enqueue(napi_env env, napi_callback_info info){
   return NULL;
 }
 
-static napi_value
-b_obj(napi_env env, napi_callback_info info){
-  napi_value argv[1];
-  size_t argc = 1;
-
-  NAPI_CALL(
-    env,
-    napi_get_cb_info(
-      env,
-      info,
-      &argc,
-      argv,
-      NULL,
-      NULL
-    )
-  );
-
-  napi_value object = argv[0];
-
-  trn_t * trn = obj_to_trn(env, object);
-  return NULL;
-}
-
 void*
 add_function(
   napi_env env,
@@ -140,13 +117,6 @@ napi_value create_addon(napi_env env){
     res,
     b_enqueue,
     "enqueue"
-  );
-
-  add_function(
-    env,
-    res,
-    b_obj,
-    "obj"
   );
 
   return res;

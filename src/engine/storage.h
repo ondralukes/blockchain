@@ -4,13 +4,19 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include <pthread.h>
+
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #include <openssl/sha.h>
 
 #include "block.h"
+#include "transaction.h"
 #include "utils.h"
+
+void initStorage();
+void finishStorage();
 
 bool save(block_t * block);
 block_t * load(uint64_t timestamp);
@@ -23,4 +29,5 @@ void readOutput(FILE* fp, trn_output_t* output);
 char * readString(FILE * fp);
 
 void updateHeadCache(block_t * block);
+trn_id_t* getCachedHead(char * publicKey);
 #endif

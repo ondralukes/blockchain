@@ -6,8 +6,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "object_utils.h"
-
 typedef struct {
   char* receiver;
   int64_t amount;
@@ -25,6 +23,13 @@ typedef struct {
   char* hash;
   char* signature;
 } trn_t;
+
+typedef struct {
+  uint64_t timestamp;
+  char* hash;
+} trn_id_t;
+
+#include "object_utils.h"
 
 trn_t * obj_to_trn(napi_env env, napi_value obj);
 void destroy_trn(trn_t* t);

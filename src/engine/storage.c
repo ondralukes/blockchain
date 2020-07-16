@@ -1,5 +1,18 @@
 #include "storage.h"
 
+pthread_mutex_t storageMutex;
+void initStorage(){
+  if(pthread_mutex_init(&storageMutex, NULL) != 0){
+      printf("[Engine/Storage] Mutex init error\n");
+  }
+}
+
+void finishStorage(){
+  if(pthread_mutex_destroy(&storageMutex) != 0){
+      printf("[Engine/Storage] Mutex destroy error\n");
+  }
+}
+
 void createDir(char * path){
   struct stat st;
   if(stat(path, &st) == -1){
@@ -9,6 +22,10 @@ void createDir(char * path){
 }
 
 bool save(block_t * block){
+  if(pthread_mutex_lock(&storageMutex) != 0){
+    printf("[Engine/Storage] Mutex lock error\n");
+    return false;
+  }
   uint64_t timestamp = block->timestamp;
   uint64_t year = 1970 + timestamp/31556926;
   timestamp %= 31556926;
@@ -33,18 +50,21 @@ bool save(block_t * block){
 
   if(fp == NULL){
     printf("[Engine/Storage] Failed to open file %s\n", filename);
+    pthread_mutex_unlock(&storageMutex);
     return false;
   }
 
   if(fwrite(&block->timestamp, sizeof(uint64_t), 1, fp) != 1){
     printf("[Engine/Storage] Failed to write to file %s\n", filename);
     fclose(fp);
+    pthread_mutex_unlock(&storageMutex);
     return false;
   }
 
   if(fwrite(&block->trnCount, sizeof(uint32_t), 1, fp) != 1){
     printf("[Engine/Storage] Failed to write to file %s\n", filename);
     fclose(fp);
+    pthread_mutex_unlock(&storageMutex);
     return false;
   }
 
@@ -52,6 +72,7 @@ bool save(block_t * block){
     if(!writeTrn(fp, block->trns[i])){
       printf("[Engine/Storage] Failed to write transaction to file %s\n", filename);
       fclose(fp);
+      pthread_mutex_unlock(&storageMutex);
       return false;
     }
   }
@@ -62,6 +83,7 @@ bool save(block_t * block){
   SHA512_CTX hashContext;
   if(SHA512_Init(&hashContext) != 1){
     printf("[Engine/Storage] OpenSSL sha512 error\n");
+    pthread_mutex_unlock(&storageMutex);
     return false;
   }
 
@@ -70,6 +92,7 @@ bool save(block_t * block){
   while((sz = fread(buf, 1, 2048, fp)) != 0){
     if(SHA512_Update(&hashContext, buf, sz) != 1){
       printf("[Engine/Storage] OpenSSL sha512 error\n");
+      pthread_mutex_unlock(&storageMutex);
       return false;
     }
   }
@@ -78,6 +101,7 @@ bool save(block_t * block){
 
   if(SHA512_Final(hash, &hashContext) != 1){
     printf("[Engine/Storage] OpenSSL sha512 error\n");
+    pthread_mutex_unlock(&storageMutex);
     return false;
   }
 
@@ -90,6 +114,7 @@ bool save(block_t * block){
   if(fwrite(hash, SHA512_DIGEST_LENGTH, 1, fp) != 1){
     printf("[Engine/Storage] Failed to write to file %s\n", filename);
     fclose(fp);
+    pthread_mutex_unlock(&storageMutex);
     return false;
   }
 
@@ -99,6 +124,10 @@ bool save(block_t * block){
 
   free(filename);
 
+  if(pthread_mutex_unlock(&storageMutex) != 0){
+    printf("[Engine/Storage] Mutex unlock error\n");
+    return false;
+  }
   return true;
 }
 
@@ -146,6 +175,10 @@ bool writeOutput(FILE * fp, trn_output_t * output){
 }
 
 block_t * load(uint64_t t){
+  if(pthread_mutex_lock(&storageMutex) != 0){
+    printf("[Engine/Storage] Mutex lock error\n");
+    return false;
+  }
   uint64_t timestamp = t;
   uint64_t year = 1970 + timestamp/31556926;
   timestamp %= 31556926;
@@ -163,18 +196,21 @@ block_t * load(uint64_t t){
 
   if(fp == NULL){
     printf("[Engine/Storage] Failed to open file.\n");
+    pthread_mutex_unlock(&storageMutex);
     return NULL;
   }
 
   if(fread(&timestamp, sizeof(uint64_t), 1, fp) != 1){
     printf("[Engine/Storage] Failed to read from file.\n");
     fclose(fp);
+    pthread_mutex_unlock(&storageMutex);
     return NULL;
   }
 
   if(t != timestamp){
     printf("[Engine/Storage] Timestamps does not match. (%ld != %ld)\n", t, timestamp);
     fclose(fp);
+    pthread_mutex_unlock(&storageMutex);
     return NULL;
   }
 
@@ -182,6 +218,7 @@ block_t * load(uint64_t t){
   if(fread(&trnCount, sizeof(uint32_t), 1, fp) != 1){
     printf("[Engine/Storage] Failed to read from file.\n");
     fclose(fp);
+    pthread_mutex_unlock(&storageMutex);
     return NULL;
   }
 
@@ -190,6 +227,11 @@ block_t * load(uint64_t t){
 
   for(uint32_t i =0;i<trnCount;i++){
     block->trns[i] = readTrn(fp);
+  }
+
+  if(pthread_mutex_unlock(&storageMutex) != 0){
+    printf("[Engine/Storage] Mutex unlock error\n");
+    return false;
   }
 
   return block;
@@ -244,19 +286,21 @@ char * readString(FILE * fp){
 }
 
 void updateHeadCache(block_t * block){
-  unsigned char hash[SHA_DIGEST_LENGTH];
+  if(pthread_mutex_lock(&storageMutex) != 0){
+    printf("[Engine/Storage] Mutex lock error\n");
+    return;
+  }
+
   for(uint32_t i = 0;i<block->trnCount;i++){
     char* owner = block->trns[i]->owner;
-    SHA1(owner, strlen(owner), hash);
-    char* hexhash = bytesToHex(hash, SHA_DIGEST_LENGTH);
-    printf("[Engine/Storage] Updated cache at %s\n", hexhash);
+    char* hexhash = sha1hex(owner);
 
     createDir("data/head_cache");
 
     char * path = malloc(2048);
     sprintf(path, "data/head_cache/%s", hexhash);
 
-    FILE * cacheFile = fopen(path, "w");
+    FILE * cacheFile = fopen(path, "wb");
 
     if(fwrite(block->trns[i]->hash, strlen(block->trns[i]->hash) + 1, 1, cacheFile) != 1){
       printf("[Engine/Storage] Failed to write to file %s\n", path);
@@ -269,6 +313,48 @@ void updateHeadCache(block_t * block){
     fclose(cacheFile);
 
     free(path);
+
+    printf("[Engine/Storage] Updated cache at %s\n", hexhash);
     free(hexhash);
   }
+  if(pthread_mutex_unlock(&storageMutex) != 0){
+    printf("[Engine/Storage] Mutex unlock error\n");
+    return;
+  }
+}
+
+trn_id_t* getCachedHead(char * publicKey){
+  if(pthread_mutex_lock(&storageMutex) != 0){
+    printf("[Engine/Storage] Mutex lock error\n");
+    return NULL;
+  }
+  trn_id_t * res = malloc(sizeof(trn_id_t));
+  char * hexhash = sha1hex(publicKey);
+
+  char * path = malloc(2048);
+
+  sprintf(path, "data/head_cache/%s", hexhash);
+
+  FILE * cacheFile = fopen(path, "rb");
+  if(cacheFile == NULL){
+    if(pthread_mutex_unlock(&storageMutex) != 0){
+      printf("[Engine/Storage] Mutex unlock error\n");
+    }
+    return NULL;
+  }
+
+  res->hash = readString(cacheFile);
+
+  if(fread(&res->timestamp, sizeof(uint64_t), 1, cacheFile) != 1){
+    printf("[Engine/Storage] Failed to read file %s\n", path);
+  }
+
+  fclose(cacheFile);
+
+  free(path);
+  free(hexhash);
+  if(pthread_mutex_unlock(&storageMutex) != 0){
+    printf("[Engine/Storage] Mutex unlock error\n");
+  }
+  return res;
 }

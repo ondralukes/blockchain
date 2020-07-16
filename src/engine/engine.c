@@ -26,12 +26,24 @@ void* composer_loop(void* args){
       printf("[Engine/Composer] %d requests pending\n", queue->size);
       req_t * req = queue_dequeue(queue);
       if(req->type == REQ_ENQUEUE){
+
         printf("[Engine/Composer] Dequeued 'enqueue' request.\n");
         struct enqueue_request* requestData = req->data.enqueue;
         trn_t * trn = requestData->trn;
         printf("[Engine/Composer] [Enqueue] hash = %s\n", trn->hash);
         queue_enqueue(pendingTransactions, trn);
         free(requestData);
+
+      } else if(req->type == REQ_GET_HEAD) {
+
+        printf("[Engine/Composer] Dequeued 'getHead' request.\n");
+        struct get_head_request* requestData = req->data.getHead;
+        trn_id_t* res = getCachedHead(requestData->publicKey);
+        //Res is destroyed in callThreadsafe
+        callThreadsafe(requestData->callback, res);
+        free(requestData->publicKey);
+        free(requestData);
+
       }
       free(req);
     }
@@ -127,6 +139,8 @@ int start(){
   shouldStop = false;
   nextBlockTime = (time(NULL) / 10)*10 + 10;
 
+  initStorage();
+
   if(pthread_mutex_init(&requestQueueMutex, NULL) != 0){
     return -1;
   }
@@ -157,6 +171,8 @@ int stop(){
   if(pthread_join(composerThread, NULL) != 0) return -1;
   if(pthread_join(validatorThread, NULL) != 0) return -1;
   if(pthread_mutex_destroy(&requestQueueMutex) != 0) return -1;
+
+  finishStorage();
   return pthread_mutex_destroy(&pendingBlocksMutex);
 }
 
@@ -188,6 +204,27 @@ void enqueue(napi_env env, napi_value request){
     );
 
     printf("[Engine/API] Enqueueing 'enqueue' request.\n");
+    queue_enqueue(queue, req);
+  } else if(strcmp(requestType, "getHead") == 0){
+    req->type = REQ_GET_HEAD;
+    req->data.getHead = malloc(sizeof(struct get_head_request));
+    req->data.getHead->publicKey = napiToString(
+      env,
+      getProperty(
+        env,
+        request,
+        "publicKey"
+      )
+    );
+    toThreadsafeFunc(
+      env,
+      getProperty(
+        env,
+        request,
+        "callback"
+      ),
+      &req->data.getHead->callback
+    );
     queue_enqueue(queue, req);
   } else {
     printf("[Engine/API] Unknown request type.\n");

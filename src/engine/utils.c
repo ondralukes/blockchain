@@ -15,3 +15,9 @@ char * bytesToHex(unsigned char* bytes, size_t size){
   *ptr = '\0';
   return res;
 }
+
+char * sha1hex(char * string){
+  unsigned char hash[SHA_DIGEST_LENGTH];
+  SHA1(string, strlen(string), hash);
+  return bytesToHex(hash, SHA_DIGEST_LENGTH);
+}
