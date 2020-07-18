@@ -84,7 +84,7 @@ void* composer_loop(void* args){
     }
     usleep(250000);
     if(shouldStop){
-      printf("[Engine/Composer] Stopping.");
+      printf("[Engine/Composer] Stopping.\n");
       break;
     }
   }
@@ -128,7 +128,7 @@ void* validator_loop(void* args){
 
     usleep(25000);
     if(shouldStop){
-      printf("[Engine/Validator] Stopping.");
+      printf("[Engine/Validator] Stopping.\n");
       break;
     }
   }
