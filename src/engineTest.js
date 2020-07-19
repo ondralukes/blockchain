@@ -17,6 +17,10 @@ const enqueueInterval = setInterval(
                     {
                         "amount": 123,
                         "receiver": "test receiver1"
+                    },
+                    {
+                        "amount": 321,
+                        "receiver": "test receiver2"
                     }
                 ],
                 "hash": "test hash",
@@ -26,7 +30,15 @@ const enqueueInterval = setInterval(
         engine.enqueue({
             type: 'getHead',
             publicKey: 'test owner',
-            callback: (x) => console.log('Engine callback: ', x)
+            callback: (x) => {
+                console.log('Engine getHead callback: ', x);
+                engine.enqueue({
+                    type: 'getTrn',
+                    hash: x.hash,
+                    timestamp: x.timestamp,
+                    callback: (y) => console.log('Engine getTrn callback:', y)
+                });
+            }
         });
     },
     1000

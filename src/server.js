@@ -45,4 +45,15 @@ app.post('/ep/head', (req, res) => {
     });
 });
 
+app.post('/ep/trn', (req, res) => {
+    engine.enqueue({
+        type: 'getTrn',
+        hash: req.body.hash,
+        timestamp: req.body.timestamp,
+        callback: (x) => {
+            res.end(JSON.stringify(x));
+        }
+    })
+});
+
 app.listen(8080);

@@ -32,7 +32,10 @@ typedef struct {
 #include "object_utils.h"
 
 trn_t * obj_to_trn(napi_env env, napi_value obj);
+napi_value trn_to_obj(napi_env env, trn_t* trn);
+
 void destroy_trn(trn_t* t);
+void destroy_trn_id(trn_id_t* id);
 
 void print_trn(trn_t* t);
 #endif

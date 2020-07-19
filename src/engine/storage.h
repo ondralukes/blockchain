@@ -30,4 +30,6 @@ char * readString(FILE * fp);
 
 void updateHeadCache(block_t * block);
 trn_id_t* getCachedHead(char * publicKey);
+
+trn_t* load_trn(trn_id_t* id);
 #endif

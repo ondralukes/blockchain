@@ -358,3 +358,22 @@ trn_id_t* getCachedHead(char * publicKey){
   }
   return res;
 }
+
+trn_t* load_trn(trn_id_t* id){
+  block_t* b = load(id->timestamp);
+  if(b == NULL) return NULL;
+
+  trn_t * trn;
+  for(uint32_t i = 0;i<b->trnCount;i++){
+    char* hash = b->trns[i]->hash;
+    if(strcmp(id->hash, hash) == 0){
+      trn = b->trns[i];
+    } else {
+      destroy_trn(b->trns[i]);
+    }
+  }
+
+  if(b->hash != NULL) free(b->hash);
+  free(b);
+  return trn;
+}

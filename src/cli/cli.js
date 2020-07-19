@@ -10,25 +10,43 @@ if(!fs.existsSync(dir))
 
 const command = process.argv[2];
 
-switch (command) {
-    case 'init':
-        if(fs.existsSync(path.join(dir, 'public')) || fs.existsSync(path.join(dir, 'private'))){
-            console.log('A key was already generated.');
-            process.exit(1);
-        }
+run();
 
-        console.log('Generating new RSA key');
-        const key = new RSA({b: 4096});
-        fs.writeFileSync(path.join(dir, 'public'), key.exportKey('public'));
-        fs.writeFileSync(path.join(dir, 'private'), key.exportKey('private'));
-        console.log('Done');
-        break;
-    case 'head':
-        if(!fs.existsSync(path.join(dir, 'public'))){
-            console.log('No key! Run `init` command.');
-            process.exit();
-        }
-        console.log('POST localhost:8080/ep/head');
+async function run() {
+    switch (command) {
+        case 'init':
+            if(fs.existsSync(path.join(dir, 'public')) || fs.existsSync(path.join(dir, 'private'))){
+                console.log('A key was already generated.');
+                process.exit(1);
+            }
+
+            console.log('Generating new RSA key');
+            const key = new RSA({b: 4096});
+            fs.writeFileSync(path.join(dir, 'public'), key.exportKey('public'));
+            fs.writeFileSync(path.join(dir, 'private'), key.exportKey('private'));
+            console.log('Done');
+            break;
+        case 'head':
+            if(!fs.existsSync(path.join(dir, 'public'))){
+                console.log('No key! Run `init` command.');
+                process.exit();
+            }
+            const publicKey = fs.readFileSync(path.join(dir, 'public')).toString();
+            console.log('POST localhost:8080/ep/head');
+
+            const id = await getHeadId(publicKey);
+            console.log(id);
+            if(id !== null){
+                const trn = await getTrn(id);
+                console.log(trn);
+            }
+            break;
+    }
+}
+
+
+async function getHeadId(publicKey){
+    return new Promise((resolve) => {
         let resp = '';
         const req = http.request(
             {
@@ -41,14 +59,14 @@ switch (command) {
                 }
             },
             (res) => {
-            res.on('data', (chunk) => {
-                resp += chunk;
-            });
+                res.on('data', (chunk) => {
+                    resp += chunk;
+                });
 
-            res.on('end', () => {
-                console.log(JSON.parse(resp));
-            })
-        });
+                res.on('end', () => {
+                    resolve(JSON.parse(resp));
+                });
+            });
 
         req.on('error', () => {
             console.log("Failed to connect.");
@@ -57,11 +75,43 @@ switch (command) {
         req.write(
             JSON.stringify(
                 {
-                    publicKey: fs.readFileSync(path.join(dir, 'public')).toString()
+                    publicKey: publicKey
                 }
             ));
         req.end();
+    });
+}
 
+async function getTrn(id) {
+    return new Promise((resolve) => {
+        let resp = '';
+        const req = http.request(
+            {
+                hostname: 'localhost',
+                port: 8080,
+                path: '/ep/trn',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            },
+            (res) => {
+                res.on('data', (chunk) => {
+                    resp += chunk;
+                });
 
-        break;
+                res.on('end', () => {
+                    resolve(JSON.parse(resp));
+                });
+            });
+
+        req.on('error', () => {
+            console.log("Failed to connect.");
+            process.exit(1);
+        });
+        req.write(
+            JSON.stringify(id)
+        );
+        req.end();
+    });
 }

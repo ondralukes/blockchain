@@ -126,7 +126,11 @@ char* napiToString(napi_env env, napi_value obj){
   return buf;
 }
 
-void toThreadsafeFunc(napi_env env, napi_value func, napi_threadsafe_function* res){
+void toThreadsafeFunc(
+  napi_env env,
+  napi_value func,
+  napi_threadsafe_function_call_js js_cb,
+  napi_threadsafe_function* res){
   napi_value resource_name;
   NAPI_CALL(
     env,
@@ -150,7 +154,7 @@ void toThreadsafeFunc(napi_env env, napi_value func, napi_threadsafe_function* r
       NULL, //thread_finalize_data
       NULL, //thread_finalize_cb
       NULL, //context
-      get_head_threadsafe_js_cb, //call_js_cb
+      js_cb, //call_js_cb
       res   //result
     )
   );
@@ -238,6 +242,30 @@ void get_head_threadsafe_js_cb(
       js_callback,
       1,
       &js_id,
+      NULL
+    )
+  );
+}
+
+void get_trn_threadsafe_js_cb(
+  napi_env env,
+  napi_value js_callback,
+  void* context,
+  void* data
+){
+  trn_t * trn = (trn_t *) data;
+  napi_value res = trn_to_obj(env, trn);
+  destroy_trn(trn);
+
+
+  NAPI_CALL(
+    env,
+    napi_call_function(
+      env,
+      js_callback,
+      js_callback,
+      1,
+      &res,
       NULL
     )
   );

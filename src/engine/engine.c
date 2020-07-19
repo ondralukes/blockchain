@@ -39,9 +39,20 @@ void* composer_loop(void* args){
         printf("[Engine/Composer] Dequeued 'getHead' request.\n");
         struct get_head_request* requestData = req->data.getHead;
         trn_id_t* res = getCachedHead(requestData->publicKey);
-        //Res is destroyed in callThreadsafe
+        //res is destroyed in callThreadsafe
         callThreadsafe(requestData->callback, res);
         free(requestData->publicKey);
+        free(requestData);
+
+      } else if(req->type == REQ_GET_TRN) {
+
+        printf("[Engine/Composer] Dequeued 'getTrn' request.\n");
+        struct get_trn_request* requestData = req->data.getTrn;
+        trn_id_t * id = requestData->trn_id;
+        trn_t* res = load_trn(id);
+        //res is destroyed in callThreadsafe
+        callThreadsafe(requestData->callback, res);
+        destroy_trn_id(id);
         free(requestData);
 
       }
@@ -192,6 +203,7 @@ void enqueue(napi_env env, napi_value request){
 
   req_t* req = malloc(sizeof(req_t));
   if(strcmp(requestType, "enqueue") == 0){
+
     req->type = REQ_ENQUEUE;
     req->data.enqueue = malloc(sizeof(struct enqueue_request));
     req->data.enqueue->trn = obj_to_trn(
@@ -205,7 +217,9 @@ void enqueue(napi_env env, napi_value request){
 
     printf("[Engine/API] Enqueueing 'enqueue' request.\n");
     queue_enqueue(queue, req);
+
   } else if(strcmp(requestType, "getHead") == 0){
+
     req->type = REQ_GET_HEAD;
     req->data.getHead = malloc(sizeof(struct get_head_request));
     req->data.getHead->publicKey = napiToString(
@@ -223,11 +237,48 @@ void enqueue(napi_env env, napi_value request){
         request,
         "callback"
       ),
+      get_head_threadsafe_js_cb,
       &req->data.getHead->callback
     );
+    printf("[Engine/API] Enqueueing 'getHead' request.\n");
     queue_enqueue(queue, req);
+
+  } else if(strcmp(requestType, "getTrn") == 0) {
+
+    req->type = REQ_GET_TRN;
+    req->data.getTrn = malloc(sizeof(struct get_trn_request));
+    req->data.getTrn->trn_id = malloc(sizeof(trn_id_t));
+    req->data.getTrn->trn_id->timestamp = napiToInt(
+      env,
+      getProperty(
+        env,
+        request,
+        "timestamp"
+      )
+    );
+    req->data.getTrn->trn_id->hash = napiToString(
+      env,
+      getProperty(
+        env,
+        request,
+        "hash"
+      )
+    );
+    toThreadsafeFunc(
+      env,
+      getProperty(
+        env,
+        request,
+        "callback"
+      ),
+      get_trn_threadsafe_js_cb,
+      &req->data.getTrn->callback
+    );
+    printf("[Engine/API] Enqueueing 'getTrn' request.\n");
+    queue_enqueue(queue, req);
+
   } else {
-    printf("[Engine/API] Unknown request type.\n");
+    printf("[Engine/API] Unknown request type %s.\n", requestType);
   }
 
   free(requestType);
