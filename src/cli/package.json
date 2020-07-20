@@ -4,6 +4,7 @@
   "description": "",
   "main": "cli.js",
   "dependencies": {
+    "chalk": "^4.1.0",
     "node-rsa": "^1.0.8"
   },
   "devDependencies": {},

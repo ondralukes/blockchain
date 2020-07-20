@@ -1,5 +1,8 @@
 const engine = require('./engine/build/Release/engine');
 const express = require('express');
+const fs = require('fs');
+
+let userKeys = new Map();
 
 function onExit(){
     console.log('Stopping engine.');
@@ -8,6 +11,13 @@ function onExit(){
     if(rc !== 0){
         console.error('[Server] Engine failed to stop (' + rc + ')');
     }
+
+    console.log('Saving users.');
+    fs.writeFileSync('users',
+        JSON.stringify(
+            [...userKeys]
+        )
+        );
     console.log('Bye bye!');
     process.exit();
 }
@@ -21,6 +31,14 @@ process.on('uncaughtException',(error) => {
         process.exit();
     }
 );
+
+if(fs.existsSync('users')){
+    console.log('Loading users.');
+    const obj = JSON.parse(fs.readFileSync('users').toString());
+    console.log(obj);
+    userKeys = new Map(obj);
+    console.log('Done.');
+}
 
 console.log('[Server] Starting engine.');
 
@@ -54,6 +72,42 @@ app.post('/ep/trn', (req, res) => {
             res.end(JSON.stringify(x));
         }
     })
+});
+
+app.post('/ep/register', (req, res) => {
+    if(typeof req.body === 'undefined'){
+        res.status(400);
+        res.end(JSON.stringify({
+            error: 'A body is required.'
+        }));
+        return;
+    }
+
+    if(typeof req.body.name === 'undefined'){
+        res.status(400);
+        res.end(JSON.stringify({
+            error: 'A name is required.'
+        }));
+        return;
+    }
+
+    if(typeof req.body.publicKey === 'undefined'){
+        res.status(400);
+        res.end(JSON.stringify({
+            error: 'A publicKey is required.'
+        }));
+        return;
+    }
+    if(userKeys.has(req.body.name)){
+        res.status(500);
+        res.end(JSON.stringify({
+            error: 'This name is already registered.'
+        }));
+        return;
+    }
+
+    userKeys.set(req.body.name, req.body.publicKey);
+    res.end('{}');
 });
 
 app.listen(8080);
