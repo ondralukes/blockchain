@@ -1,0 +1,16 @@
+{
+  "name": "blockchain-cli",
+  "version": "1.0.0",
+  "description": "",
+  "main": "cli.js",
+  "dependencies": {
+    "chalk": "^4.1.0",
+    "node-rsa": "^1.0.8"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "ondralukes",
+  "license": "MIT"
+}
